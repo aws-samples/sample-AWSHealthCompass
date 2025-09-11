@@ -1,4 +1,6 @@
-# AWS Health Compass - Targeted routing to Jira
+# AWS Health Compass 
+
+## Targeted routing to Jira
 
 **AWS Health event targeted routing to Jira** is a serverless solution that automates the creation and management of Jira tickets from AWS Health planned lifecycle events across an AWS organization. It provides intelligent routing capabilities based on configurable deployment models, ensuring that the right teams receive notifications about infrastructure changes that affect their resources.
 
