@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: 'CloudFormation template for AWS Health Event to ServiceNow Integration'
+Description: 'CloudFormation template for AWS Health Event to ServiceNow Integration(uksb-1xprlbuzr3)'
 
 Metadata:
   AWS::CloudFormation::Interface:
