@@ -4,7 +4,7 @@
 
 **AWS Health event targeted routing to ITSM Tool** is a serverless solution that automates the creation and management of tickets from AWS Health planned lifecycle events across an AWS organization. It provides intelligent routing capabilities based on configurable deployment models, ensuring that the right teams receive notifications about infrastructure changes that affect their resources. The tool supports both Jira and ServiceNow as of now.
 
-This solution significantly reduces operational overhead by automating the creation and management of Jira tickets for AWS infrastructure changes, ensuring teams are notified about relevant events while minimizing alert noise through intelligent ticket updates and routing.
+The solution addresses critical operational challenges by aggregating health events across accounts, automating ticket creation in Jira and ServiceNow, intelligent detection of update events and providing customizable routing capabilities to send the ticket to right technical owner. 
 
 
 ## Key Features
@@ -53,7 +53,7 @@ The solution consists of the following components:
     - Cross-account access added to provided AssumeRoleName (Tag model only)
 
 
-## Deployment
+## Deployment for Jira
 
 
 ### Deployment Modes
