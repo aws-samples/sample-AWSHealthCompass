@@ -1,8 +1,8 @@
 # AWS Health Compass 
 
-## Targeted routing to Jira
+## Health event targeted routing to ITSM Tool
 
-**AWS Health event targeted routing to Jira** is a serverless solution that automates the creation and management of Jira tickets from AWS Health planned lifecycle events across an AWS organization. It provides intelligent routing capabilities based on configurable deployment models, ensuring that the right teams receive notifications about infrastructure changes that affect their resources.
+**AWS Health event targeted routing to ITSM Tool** is a serverless solution that automates the creation and management of tickets from AWS Health planned lifecycle events across an AWS organization. It provides intelligent routing capabilities based on configurable deployment models, ensuring that the right teams receive notifications about infrastructure changes that affect their resources. The tool supports both Jira and ServiceNow as of now.
 
 This solution significantly reduces operational overhead by automating the creation and management of Jira tickets for AWS infrastructure changes, ensuring teams are notified about relevant events while minimizing alert noise through intelligent ticket updates and routing.
 
