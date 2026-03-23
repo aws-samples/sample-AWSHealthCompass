@@ -214,6 +214,7 @@ def build_feature_payload(event_body, identifier, resources, area_path):
     patch = [
         {"op": "add", "path": "/fields/System.Title", "value": title},
         {"op": "add", "path": "/fields/System.State", "value": "New"},
+        {"op": "add", "path": "/fields/Microsoft.VSTS.Common.Priority", "value": 3},
         {"op": "add", "path": "/fields/System.Description", "value": description}
     ]
 
