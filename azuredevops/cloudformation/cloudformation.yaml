@@ -1,0 +1,585 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'CloudFormation template for AWS Health Event to Azure DevOps Integration'
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Deployment Configuration"
+        Parameters:
+          - DeployModel
+          - AssumeRoleName
+          - TagKey
+      - Label:
+          default: "Azure DevOps Configuration"
+        Parameters:
+          - ADOOrganizationUrl
+          - ADOPat
+          - ADOAreaPath
+          - ADOIterationPathPrefix
+      - Label:
+          default: "Lambda Code Location"
+        Parameters:
+          - S3BucketName
+          - HealthEventProcessorLambdaKey
+          - HealthEventADOIntegrationLambdaKey
+    ParameterLabels:
+      DeployModel:
+        default: "Deployment Model"
+      AssumeRoleName:
+        default: "Assume Role Name"
+      TagKey:
+        default: "Tag Key to Monitor"
+      ADOOrganizationUrl:
+        default: "Azure DevOps Organization URL"
+      ADOPat:
+        default: "Azure DevOps Personal Access Token"
+      ADOAreaPath:
+        default: "Fixed Area Path (Optional)"
+      ADOIterationPathPrefix:
+        default: "Iteration Path Prefix (Optional)"
+      S3BucketName:
+        default: "S3 Bucket Name"
+      HealthEventProcessorLambdaKey:
+        default: "Health Event Processor Lambda S3 Key"
+      HealthEventADOIntegrationLambdaKey:
+        default: "ADO Integration Lambda S3 Key"
+
+Parameters:
+  DeployModel:
+    Type: String
+    AllowedValues: 
+      - Account
+      - Service
+      - Tag
+    Description: Select the deployment model for integration (Account, Service, Tag)
+    
+  AssumeRoleName:
+    Type: String
+    Description: |
+      (Required only if DeploymentModel is Tag) 
+      Name of the IAM role to assume in Tag deployment model for cross account resource tag listing
+    MinLength: 0
+    MaxLength: 64
+    AllowedPattern: "^$|^[\\w+=,.@-]+$"
+    ConstraintDescription: Role name must be empty or contain only alphanumeric and [+=,.@-] characters
+    Default: ""
+
+  TagKey:
+    Type: String
+    Description: |
+      (Required only if DeploymentModel is Tag) 
+      The tag key to monitor for routing Health events (e.g., 'Environment', 'Application', 'Team')
+    MinLength: 0
+    MaxLength: 128
+    AllowedPattern: "^$|^[\\w+=,.@-]+$"
+    ConstraintDescription: Tag key must be empty or contain only alphanumeric and [+=,.@-] characters
+    Default: ""
+    
+  ADOOrganizationUrl:
+    Type: String
+    Description: Azure DevOps organization URL (e.g., https://dev.azure.com/your-organization)
+    
+  ADOPat:
+    Type: String
+    Description: Azure DevOps Personal Access Token with Work Items Read & Write scope
+    NoEcho: true
+
+  ADOAreaPath:
+    Type: String
+    Description: |
+      (Optional) Fixed Area Path for all work items. If set, overrides DynamoDB-based Area Path routing.
+      Leave empty to use Account/Service/Tag routing model for Area Path assignment.
+    Default: ""
+
+  ADOIterationPathPrefix:
+    Type: String
+    Description: |
+      (Optional) Iteration path prefix. If provided, the solution appends current month and year 
+      automatically (e.g., prefix 'MyProject\Sprint' becomes 'MyProject\Sprint March 2026').
+      Leave empty to use ADO project default iteration.
+    Default: ""
+  
+  S3BucketName:
+    Type: String
+    Description: S3 bucket containing Lambda code
+
+  HealthEventProcessorLambdaKey:
+    Type: String
+    Description: S3 key for Health Event Processor Lambda code zip file
+
+  HealthEventADOIntegrationLambdaKey:
+    Type: String
+    Description: S3 key for ADO Integration Lambda code zip file
+
+Rules:
+  ValidateAssumeRoleName:
+    RuleCondition: !Equals 
+      - !Ref DeployModel
+      - 'Tag'
+    Assertions:
+      - Assert: !Not [!Equals [!Ref AssumeRoleName, ""]]
+        AssertDescription: AssumeRoleName is required when DeploymentModel is Tag
+      - Assert: !Not [!Equals [!Ref TagKey, ""]]
+        AssertDescription: TagKey is required when DeploymentModel is Tag
+
+Conditions:
+  IsAccountModel: !Equals [!Ref DeployModel, 'Account']
+  IsServiceModel: !Equals [!Ref DeployModel, 'Service']
+  IsTagModel: !Equals [!Ref DeployModel, 'Tag']
+  HasAreaPath: !Not [!Equals [!Ref ADOAreaPath, ""]]
+  HasIterationPrefix: !Not [!Equals [!Ref ADOIterationPathPrefix, ""]]
+
+Resources:
+  # DynamoDB Mapping Tables (one per deployment model)
+  AccountADOTable:
+    Condition: IsAccountModel
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: Account
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Account
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  ServiceADOTable:
+    Condition: IsServiceModel
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: Service
+          AttributeType: S
+      KeySchema:
+        - AttributeName: Service
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  TagADOTable:
+    Condition: IsTagModel
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: HostTag
+          AttributeType: S
+      KeySchema:
+        - AttributeName: HostTag
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  # Event tracking table
+  TrackEventTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: eventArn
+          AttributeType: S
+        - AttributeName: resourceArn
+          AttributeType: S
+      KeySchema:
+        - AttributeName: resourceArn
+          KeyType: HASH
+        - AttributeName: eventArn
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: TETkeyIndex
+          KeySchema:
+            - AttributeName: eventArn
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expirationTime
+        Enabled: true
+
+  # ADO PAT in Secrets Manager
+  ADOSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Azure DevOps PAT for AWS Health Event integration
+      SecretString: !Sub |
+        {
+          "pat": "${ADOPat}"
+        }
+
+  # SQS Queues
+  HealthEventIngestionDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-HealthEventIngestion-DLQ'
+      MessageRetentionPeriod: 1209600
+
+  HealthEventIngestionQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-HealthEventIngestionQueue'
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt HealthEventIngestionDLQ.Arn
+        maxReceiveCount: 3
+
+  HealthEventQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-health-event-queue'
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt HealthEventDLQ.Arn
+        maxReceiveCount: 3
+
+  HealthEventDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AWS::StackName}-health-event-dlq'
+      MessageRetentionPeriod: 1209600
+
+  # SQS Queue Policy for EventBridge
+  HealthEventIngestionQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref HealthEventIngestionQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt HealthEventIngestionQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt HealthEventRule.Arn
+
+  # Health Event Processor Lambda
+  HealthEventProcessorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-health-event-processor'
+      Runtime: python3.12
+      Handler: HealthEventProcessorLambda.lambda_handler 
+      Code:
+        S3Bucket: !Ref S3BucketName
+        S3Key: !Ref HealthEventProcessorLambdaKey
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          SQS_QUEUE_URL: !Ref HealthEventQueue
+          DYNAMODB_TRACK_TABLE: !Ref TrackEventTable
+          ADO_DYNAMODB_TABLE: !If
+            - IsAccountModel
+            - !Ref AccountADOTable
+            - !If
+              - IsServiceModel
+              - !Ref ServiceADOTable
+              - !Ref TagADOTable
+          DEPLOY_MODEL: !Ref DeployModel
+          ASSUME_ROLE_NAME: !If 
+            - IsTagModel
+            - !Ref AssumeRoleName
+            - !Ref "AWS::NoValue"
+          TAG_KEY: !If 
+            - IsTagModel
+            - !Ref TagKey
+            - !Ref "AWS::NoValue"
+      MemorySize: 256
+      Timeout: 240
+      Role: !GetAtt HealthEventProcessorRole.Arn
+
+  # Event Source Mapping for Health Event Processor
+  HealthEventProcessorEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt HealthEventIngestionQueue.Arn
+      FunctionName: !Ref HealthEventProcessorFunction
+      MaximumBatchingWindowInSeconds: 60
+
+  # ADO Integration Lambda
+  ADOIntegrationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-health-event-ado-integration'
+      Runtime: python3.12
+      Handler: HealthEventADOIntegration.lambda_handler 
+      Code:
+        S3Bucket: !Ref S3BucketName
+        S3Key: !Ref HealthEventADOIntegrationLambdaKey
+      Environment:
+        Variables:
+          LOG_LEVEL: INFO
+          DYNAMODB_TRACK_TABLE: !Ref TrackEventTable
+          ADO_DYNAMODB_TABLE: !If
+            - IsAccountModel
+            - !Ref AccountADOTable
+            - !If
+              - IsServiceModel
+              - !Ref ServiceADOTable
+              - !Ref TagADOTable
+          ADO_SECRET_NAME: !Ref ADOSecret
+          ADO_ORG_URL: !Ref ADOOrganizationUrl
+          DEPLOY_MODEL: !Ref DeployModel
+          ADO_AREA_PATH: !If
+            - HasAreaPath
+            - !Ref ADOAreaPath
+            - !Ref "AWS::NoValue"
+          ADO_ITERATION_PATH_PREFIX: !If
+            - HasIterationPrefix
+            - !Ref ADOIterationPathPrefix
+            - !Ref "AWS::NoValue"
+      MemorySize: 256
+      Timeout: 240
+      Role: !GetAtt ADOIntegrationRole.Arn
+
+  # Event Source Mapping for ADO Integration Lambda
+  ADOIntegrationEventMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt HealthEventQueue.Arn
+      FunctionName: !Ref ADOIntegrationFunction
+      MaximumBatchingWindowInSeconds: 60
+
+  # IAM Roles
+  HealthEventProcessorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SQSAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt HealthEventIngestionQueue.Arn
+        - PolicyName: HealthEventProcessorPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AWSHealthAccess
+                Effect: Allow
+                Action:
+                  - health:DescribeEvents
+                  - health:DescribeEventDetails
+                  - health:DescribeAffectedEntities
+                Resource: !Sub "arn:aws:health:${AWS::Region}::*"
+              - !If
+                - IsTagModel
+                - Sid: CrossAccountAssumeRole
+                  Effect: Allow
+                  Action:
+                    - sts:AssumeRole
+                  Resource: !Sub 'arn:aws:iam::*:role/${AssumeRoleName}'
+                - !Ref AWS::NoValue
+              - Sid: TagAccess
+                Effect: Allow
+                Action:
+                  - tag:GetResources
+                  - tag:GetTagKeys
+                  - tag:GetTagValues
+                Resource: '*'
+              - Sid: SQSAccess
+                Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt HealthEventQueue.Arn
+              - Sid: DynamoDBAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                Resource:
+                  - !GetAtt TrackEventTable.Arn
+                  - !Sub '${TrackEventTable.Arn}/index/*'
+                  - !If
+                    - IsAccountModel
+                    - !GetAtt AccountADOTable.Arn
+                    - !If
+                      - IsServiceModel
+                      - !GetAtt ServiceADOTable.Arn
+                      - !GetAtt TagADOTable.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-processor-role'
+
+  ADOIntegrationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ADOIntegrationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: SQSAccess
+                Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt HealthEventQueue.Arn
+              - Sid: SecretsManagerAccess
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: 
+                  - !Ref ADOSecret
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ADOSecret}*'
+              - Sid: DynamoDBAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                Resource:
+                  - !GetAtt TrackEventTable.Arn
+                  - !Sub '${TrackEventTable.Arn}/index/*'
+                  - !If
+                    - IsAccountModel
+                    - !GetAtt AccountADOTable.Arn
+                    - !If
+                      - IsServiceModel
+                      - !GetAtt ServiceADOTable.Arn
+                      - !GetAtt TagADOTable.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-ado-integration-role'
+
+  # Custom Event Bus
+  HealthEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub '${AWS::StackName}-custom-health-event-bus'
+
+  # EventBridge Rule
+  HealthEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${AWS::StackName}-health-event-rule'
+      Description: 'Capture AWS Health scheduled change events'
+      EventBusName: !Ref HealthEventBus
+      EventPattern:
+        source:
+          - aws.health
+        detail-type:
+          - AWS Health Event
+        detail:
+          eventTypeCategory:
+            - scheduledChange
+          eventTypeCode:
+            - { "suffix": { "equals-ignore-case": "_PLANNED_LIFECYCLE_EVENT" }}
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt HealthEventIngestionQueue.Arn
+          Id: HealthEventIngestionQueue
+
+  # Lambda Permission for EventBridge
+  EventBridgePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref HealthEventProcessorFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HealthEventRule.Arn
+
+Outputs:
+  DeployModel:
+    Description: Selected deployment model for ADO Integration
+    Value: !Ref DeployModel
+
+  DynamoDBTrackTable:
+    Description: Name of the DynamoDB table used for event tracking
+    Value: !Ref TrackEventTable
+
+  DynamoDBMappingTable:
+    Description: Name of the DynamoDB mapping table for routing
+    Value: !If
+      - IsAccountModel
+      - !Ref AccountADOTable
+      - !If
+        - IsServiceModel
+        - !Ref ServiceADOTable
+        - !Ref TagADOTable
+
+  EventBridgeRuleName:
+    Description: Name of the EventBridge rule
+    Value: !Ref HealthEventRule
+
+  ADOSecretName:
+    Description: Name of the ADO Secret in Secrets Manager
+    Value: !Ref ADOSecret
+
+  HealthEventQueueURL:
+    Description: URL of the SQS queue for health events
+    Value: !Ref HealthEventQueue
+
+  HealthEventIngestionQueueURL:
+    Description: URL of the SQS queue for health event ingestion
+    Value: !Ref HealthEventIngestionQueue
+
+  HealthEventQueueARN:
+    Description: ARN of the SQS queue for health events
+    Value: !GetAtt HealthEventQueue.Arn
+
+  HealthEventDLQURL:
+    Description: URL of the Dead Letter Queue
+    Value: !Ref HealthEventDLQ
+
+  HealthEventProcessorFunctionArn:
+    Description: ARN of the Health Event Processor Lambda function
+    Value: !GetAtt HealthEventProcessorFunction.Arn
+
+  HealthEventProcessorRoleArn:
+    Description: ARN of the Health Event Processor IAM Role (needed for Tag model cross-account setup)
+    Value: !GetAtt HealthEventProcessorRole.Arn
+
+  ADOIntegrationFunctionArn:
+    Description: ARN of the ADO Integration Lambda function
+    Value: !GetAtt ADOIntegrationFunction.Arn
+
+  CustomEventBusArn:
+    Description: ARN of the custom EventBridge event bus
+    Value: !GetAtt HealthEventBus.Arn
