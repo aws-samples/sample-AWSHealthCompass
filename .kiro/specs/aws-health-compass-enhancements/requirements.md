@@ -25,29 +25,45 @@ AWS Health Compass is a mature serverless solution that automates the creation a
 #### Acceptance Criteria
 
 1. THE Health_Compass SHALL maintain existing Jira integration with advanced features including project mapping, issue type configuration, ticket updates, and deployment model support
-2. THE Health_Compass SHALL maintain existing ServiceNow integration with basic change request creation and update capabilities
-3. THE Health_Compass SHALL enhance ServiceNow integration to match Jira's advanced features including project mapping and deployment model routing
-4. THE Health_Compass SHALL add PagerDuty integration for incident creation with severity mapping and escalation policies
-5. THE Health_Compass SHALL add Slack integration for notification delivery with channel routing and message formatting
-6. THE Health_Compass SHALL add Microsoft Teams integration for notification delivery with team routing and adaptive card formatting
-7. WHEN a new ITSM integration is added, THE Health_Compass SHALL maintain existing Jira and ServiceNow integrations without disruption
-8. THE Health_Compass SHALL provide a standardized integration interface for adding new ITSM systems with consistent deployment model support
-9. WHEN multiple ITSM systems are configured, THE Health_Compass SHALL route events to all configured systems simultaneously based on routing rules
+2. THE Health_Compass SHALL maintain existing ServiceNow integration and enhance it with change management capabilities distinct from the Jira integration model
+3. THE Health_Compass SHALL add PagerDuty integration for incident creation with severity mapping and escalation policies
+4. THE Health_Compass SHALL add Slack integration for notification delivery with channel routing and message formatting
+5. THE Health_Compass SHALL add Microsoft Teams integration for notification delivery with team routing and adaptive card formatting
+6. WHEN a new ITSM integration is added, THE Health_Compass SHALL maintain existing Jira and ServiceNow integrations without disruption
+7. THE Health_Compass SHALL provide a standardized integration interface for adding new ITSM systems while allowing system-specific capabilities (e.g., ServiceNow change management, Jira issue tracking)
+8. WHEN multiple ITSM systems are configured, THE Health_Compass SHALL route events to all configured systems simultaneously based on routing rules
 
-### Requirement 2: ServiceNow Integration Enhancement
+### Requirement 2: ServiceNow Change Management Integration
 
-**User Story:** As a system administrator, I want ServiceNow integration to have the same advanced features as Jira integration, so that I can leverage consistent functionality across both ITSM systems.
+**User Story:** As a system administrator, I want ServiceNow integration built around ServiceNow's native change management capabilities while reusing the proven Jira infrastructure patterns, so that AWS Health planned lifecycle events are managed through proper change workflows without duplicating shared logic.
 
 #### Acceptance Criteria
 
-1. THE Health_Compass SHALL implement ServiceNow project mapping similar to Jira's JiraProjectTable functionality
-2. THE Health_Compass SHALL support ServiceNow change request type configuration per deployment model (Account, Service, Tag)
-3. THE Health_Compass SHALL implement ServiceNow deployment model routing with dedicated configuration tables
-4. THE Health_Compass SHALL support ServiceNow default project configuration for unmapped identifiers
-5. THE Health_Compass SHALL implement ServiceNow ticket labeling and categorization similar to Jira's label system
-6. THE Health_Compass SHALL enhance ServiceNow ticket descriptions with structured formatting matching Jira's format
-7. THE Health_Compass SHALL implement ServiceNow credential management with rotation support similar to Jira
-8. WHEN ServiceNow enhancements are deployed, THE Health_Compass SHALL maintain backward compatibility with existing ServiceNow configurations
+##### Shared Foundation (reuse existing Jira patterns)
+
+1. THE Health_Compass SHALL reuse the existing event processing pipeline architecture (EventBridge → SQS → Processor Lambda → SQS → Integration Lambda) for ServiceNow, mirroring the proven Jira pattern
+2. THE Health_Compass SHALL reuse the existing HealthEventProcessorLambda logic for event ingestion, resource tagging, and resource grouping, avoiding duplication of the shared event processing code
+3. THE Health_Compass SHALL implement ServiceNow deployment-model-specific DynamoDB mapping tables (Account, Service, Tag) following the same pattern as Jira's `AccountJiraTable`, `ServiceJiraTable`, and `TagJiraTable`
+4. THE Health_Compass SHALL implement ServiceNow credential management with rotation support via AWS Secrets Manager, following the same pattern as Jira's `JiraTokenSecret`
+5. THE Health_Compass SHALL reuse the existing event tracking table (`TrackEventTable`) pattern for ServiceNow change request tracking
+
+##### ServiceNow-Specific Change Management
+
+6. THE Health_Compass SHALL create a single ServiceNow Change Request per overall lifecycle event, grouping related AWS Health events that share the same `detail.eventMetadata.deprecated_versions` value across regions
+7. THE Health_Compass SHALL support configurable change request types, allowing users to define whether planned lifecycle events create Standard or Normal changes, with Standard as the default
+8. WHEN a Change Request is created, THE Health_Compass SHALL create individual Change Tasks for each affected AWS resource within that Change
+9. WHEN ServiceNow CIs exist for affected AWS resources, THE Health_Compass SHALL link each Change Task to its corresponding Configuration Item in the CMDB
+10. WHEN ServiceNow CIs do not exist for affected AWS resources, THE Health_Compass SHALL still create individual Change Tasks per resource with resource details captured in the task description
+
+##### Assignment Group and Ownership
+
+11. THE Health_Compass SHALL support three assignment group models: (a) a single team owns the entire Change, (b) resources in the same AWS account are assigned to the same team, (c) each resource/CI is individually assigned to its owning team
+12. THE Health_Compass SHALL determine resource and assignment group ownership primarily through tags on the AWS resource or account
+13. THE Health_Compass SHALL support an optional customer-provided API for looking up resource ownership when tag-based mapping is insufficient
+
+##### Backward Compatibility
+
+14. WHEN ServiceNow enhancements are deployed, THE Health_Compass SHALL maintain backward compatibility with existing ServiceNow configurations
 
 ### Requirement 3: Advanced Event Filtering and Routing
 
