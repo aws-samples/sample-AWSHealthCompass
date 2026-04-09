@@ -13,7 +13,7 @@
    - **Service-based routing**: Organizes work items by AWS service type (EC2, S3, etc.)
    - **Tag-based routing**: Directs work items based on resource tags, enabling team-specific notifications
 
-4. **Intelligent Work Item Updates**: Updates existing work items when new resources are affected by the same AWS Health event, preventing duplicate items and providing consolidated tracking. Updates are posted as comments on the existing Feature work item.
+4. **Intelligent Work Item Updates**: Updates existing work items when new resources are affected by the same AWS Health event, preventing duplicate items and providing consolidated tracking. Updates are posted as comments on the existing Feature work item. Optionally, when `EnableAutoActivate` is enabled, the Feature status is set to "Active" and reassigned to the current sprint iteration.
 
 5. **Two-Level Work Item Hierarchy**: Creates a parent Feature work item with full event details, and a linked Child Task for the operations team to track effort. Both Feature and Child Task share the same Iteration Path (when configured). The Child Task's Effort field is left empty for the task owner to populate.
 
@@ -110,8 +110,9 @@ zip -r HealthEventADOIntegration.zip HealthEventADOIntegration.py
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| **ADOIterationPathPrefix** | Iteration path prefix in ADO. If provided, the solution appends the current month and year automatically (e.g., `March 2026`). If left empty, ADO defaults to the project root iteration. | `VF UK IT Cloud Infrastructure\Sprint` |
+| **ADOIterationPathPrefix** | Iteration path prefix in ADO. The solution appends a bi-weekly sprint identifier automatically using the format `Sprint N Mon FY YY-YY` (e.g., `Sprint 1 Apr FY 26-27` for the first half of April in financial year 2026-27). If left empty, ADO defaults to the project root iteration. | `VF UK IT Cloud Infrastructure` |
 | **ADOAreaPath** | Fixed Area Path for all work items. If set, this overrides DynamoDB-based routing for Area Path assignment. If left empty, Area Path is determined by the Account/Service/Tag routing model via DynamoDB mapping. | `VF UK IT Cloud Infrastructure\Operations and Support` |
+| **EnableAutoActivate** | When set to `true`, subsequent Health notifications for already-tracked events will update the Feature status to "Active" and reassign it to the current sprint iteration. Default: `false`. | `true` |
 
 #### Conditional Parameters (Tag Model Only)
 
@@ -263,7 +264,7 @@ Example request body:
     {
         "op": "add",
         "path": "/fields/System.IterationPath",
-        "value": "MyProject\\Sprint March 2026"
+        "value": "MyProject\\Sprint 1 Apr FY 26-27"
     },
     {
         "op": "add",
@@ -273,7 +274,7 @@ Example request body:
 ]
 ```
 
-> **Note**: The `System.Description` field accepts HTML content. The `System.IterationPath` is dynamically constructed from the `ADOIterationPathPrefix` CloudFormation parameter plus the current month and year. If the prefix is not configured, the iteration path field is omitted and ADO uses the project default.
+> **Note**: The `System.Description` field accepts HTML content. The `System.IterationPath` is dynamically constructed from the `ADOIterationPathPrefix` CloudFormation parameter using a bi-weekly sprint naming convention (`Sprint N Mon FY YY-YY`). If the prefix is not configured, the iteration path field is omitted and ADO uses the project default.
 
 **Step 2: Create the Child Task**
 
@@ -304,7 +305,7 @@ Example request body:
     {
         "op": "add",
         "path": "/fields/System.IterationPath",
-        "value": "MyProject\\Sprint March 2026"
+        "value": "MyProject\\Sprint 1 Apr FY 26-27"
     },
     {
         "op": "add",
@@ -322,6 +323,30 @@ Example request body:
 #### Updating Work Items (Adding Comments)
 
 When new resources are affected by an existing tracked event, the solution adds a comment to the existing Feature work item using the [Comments API](https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/comments/add-comment). The Feature is identified by its integer `id` returned during creation, which is stored in the DynamoDB tracking table as `adoWorkItemId`.
+
+If `EnableAutoActivate` is set to `true`, the solution also updates the Feature's state to "Active" and reassigns it to the current sprint iteration (based on the configured `ADOIterationPathPrefix`). This is done via a `PATCH` request to the Work Items API:
+
+```
+PATCH https://dev.azure.com/{organization}/{project}/_apis/wit/workitems/{workItemId}?api-version=7.1
+```
+
+Example request body:
+```json
+[
+    {
+        "op": "replace",
+        "path": "/fields/System.State",
+        "value": "Active"
+    },
+    {
+        "op": "replace",
+        "path": "/fields/System.IterationPath",
+        "value": "MyProject\\Sprint 1 Apr FY 26-27"
+    }
+]
+```
+
+The comment is added using:
 
 ```
 POST https://dev.azure.com/{organization}/{project}/_apis/wit/workItems/{workItemId}/comments?api-version=7.1-preview.4
@@ -343,9 +368,9 @@ Example request body:
 | Field | Path | Description |
 |-------|------|-------------|
 | **Title** | `/fields/System.Title` | Summary based on deployment model |
-| **State** | `/fields/System.State` | Set to "New" on creation |
+| **State** | `/fields/System.State` | Set to "New" on creation. Updated to "Active" on subsequent notifications if `EnableAutoActivate` is `true`. |
 | **Area Path** | `/fields/System.AreaPath` | Fixed via `ADOAreaPath` parameter, or determined by DynamoDB routing model |
-| **Iteration Path** | `/fields/System.IterationPath` | Dynamically set from `ADOIterationPathPrefix` + current month/year |
+| **Iteration Path** | `/fields/System.IterationPath` | Dynamically set from `ADOIterationPathPrefix` + bi-weekly sprint identifier (`Sprint N Mon FY YY-YY`). Updated to current sprint on subsequent notifications if `EnableAutoActivate` is `true`. |
 | **Description** | `/fields/System.Description` | AWS Health event description with affected resource details (HTML) |
 
 **Child Task:**
@@ -468,7 +493,7 @@ Test with sample events from the `test/` directory (if available), or wait for a
 #### 3. Work Item Creation Failures (HTTP 400)
 - Verify the project's process template supports Feature and Task work item types (Agile, Scrum, or CMMI)
 - Ensure the ADO project name in DynamoDB mapping matches the actual project name exactly (case-sensitive)
-- If `ADOIterationPathPrefix` is configured, verify the resulting iteration path (e.g., `MyProject\Sprint March 2026`) exists in the ADO project. Sprints must be created in ADO ahead of time.
+- If `ADOIterationPathPrefix` is configured, verify the resulting iteration path (e.g., `MyProject\Sprint 1 Apr FY 26-27`) exists in the ADO project. Sprints must be created in ADO ahead of time.
 - If using multi-route mode, check that the Area Path in the DynamoDB mapping exists in the ADO project
 - If using single-route mode, check that the `ADOAreaPath` CloudFormation parameter value exists in the ADO project
 

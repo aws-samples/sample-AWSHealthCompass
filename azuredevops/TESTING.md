@@ -49,7 +49,8 @@ aws cloudformation create-stack \
 **Optional parameters** — append as needed:
 ```
     ParameterKey=ADOAreaPath,ParameterValue=<your-area-path> \
-    ParameterKey=ADOIterationPathPrefix,ParameterValue=<your-iteration-prefix>
+    ParameterKey=ADOIterationPathPrefix,ParameterValue=<your-iteration-prefix> \
+    ParameterKey=EnableAutoActivate,ParameterValue=true
 ```
 
 **Tag model** — append these:
@@ -187,6 +188,7 @@ Run the same test event again (Test 3). This time:
 - No new Feature should be created
 - A **comment** should be added to the existing Feature
 - CloudWatch Logs should show "Found existing Feature" message
+- If `EnableAutoActivate` is `true`, the Feature status should change to "Active" and the Iteration Path should update to the current sprint
 
 ### Troubleshooting
 

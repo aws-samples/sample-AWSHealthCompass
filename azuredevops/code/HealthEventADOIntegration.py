@@ -33,6 +33,7 @@ ado_org_url = ado_org_url.rstrip('/')
 
 ado_area_path = os.environ.get('ADO_AREA_PATH', '')
 ado_iteration_prefix = os.environ.get('ADO_ITERATION_PATH_PREFIX', '')
+enable_auto_activate = os.environ.get('ENABLE_AUTO_ACTIVATE', 'false').lower() == 'true'
 
 # Setup boto3 session
 session = boto3.session.Session()
@@ -84,10 +85,19 @@ def get_ado_headers_json(pat):
 
 
 def get_iteration_path():
-    """Build iteration path from prefix + current month/year"""
-    if ado_iteration_prefix:
-        return f"{ado_iteration_prefix} {datetime.now().strftime('%B %Y')}"
-    return None
+    """Build iteration path from prefix + bi-weekly sprint naming.
+    Format: <prefix>\\Sprint N Mon FY YY-YY
+    where N=1 (day 1-15) or N=2 (day 16+), Mon=abbreviated month,
+    FY=financial year starting April (e.g., FY 26-27).
+    """
+    if not ado_iteration_prefix:
+        return None
+    now = datetime.now()
+    sprint = 1 if now.day <= 15 else 2
+    month_abbr = now.strftime('%b')
+    fy_start = now.year if now.month >= 4 else now.year - 1
+    fy_end = fy_start + 1
+    return f"{ado_iteration_prefix}\\Sprint {sprint} {month_abbr} FY {fy_start % 100}-{fy_end % 100}"
 
 
 def check_tracking_table(event_arn, resource_arn):
@@ -301,6 +311,28 @@ def add_comment(project, work_item_id, payload, headers):
         return None
 
 
+def activate_work_item(project, work_item_id, headers):
+    """Update a work item's state to Active and set current iteration path"""
+    patch = [
+        {"op": "replace", "path": "/fields/System.State", "value": "Active"}
+    ]
+    iteration_path = get_iteration_path()
+    if iteration_path:
+        patch.append({"op": "replace", "path": "/fields/System.IterationPath", "value": iteration_path})
+
+    url = f"{ado_org_url}/{project}/_apis/wit/workitems/{work_item_id}?api-version=7.1"
+    logger.info(f"Activating work item {work_item_id} in project {project}")
+
+    response = http.request('PATCH', url, headers=headers, body=json.dumps(patch))
+
+    if response.status == 200:
+        logger.info(f"Successfully activated work item {work_item_id}")
+        return json.loads(response.data)
+    else:
+        logger.error(f"Failed to activate work item {work_item_id}. Status: {response.status}, Response: {response.data.decode()}")
+        return None
+
+
 def get_project_and_area_path(event_body, identifier):
     """Look up ADO project name and area path from DynamoDB mapping table"""
     deploy_model = event_body['deployModel']
@@ -387,6 +419,10 @@ def lambda_handler(event, context):
             comment_payload = build_comment_payload(resources)
             add_comment(existing_project or project, existing_work_item_id, comment_payload, headers_json)
 
+            # Auto-activate if enabled
+            if enable_auto_activate:
+                activate_work_item(existing_project or project, existing_work_item_id, headers_patch)
+
             # Track all resources
             for resource in resources:
                 resource_arn = get_resource_arn(resource)
@@ -451,6 +487,10 @@ def lambda_handler(event, context):
             logger.info(f"Updating Feature {wi_id} with {len(resources)} resources")
             comment_payload = build_comment_payload(resources)
             add_comment(wi_project, wi_id, comment_payload, headers_json)
+
+            # Auto-activate if enabled
+            if enable_auto_activate:
+                activate_work_item(wi_project, wi_id, headers_patch)
 
 
 logger.info('Lambda function initialized')

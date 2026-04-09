@@ -17,6 +17,7 @@ Metadata:
           - ADOPat
           - ADOAreaPath
           - ADOIterationPathPrefix
+          - EnableAutoActivate
       - Label:
           default: "Lambda Code Location"
         Parameters:
@@ -38,6 +39,8 @@ Metadata:
         default: "Fixed Area Path (Optional)"
       ADOIterationPathPrefix:
         default: "Iteration Path Prefix (Optional)"
+      EnableAutoActivate:
+        default: "Auto-Activate Feature on Update (Optional)"
       S3BucketName:
         default: "S3 Bucket Name"
       HealthEventProcessorLambdaKey:
@@ -95,10 +98,21 @@ Parameters:
   ADOIterationPathPrefix:
     Type: String
     Description: |
-      (Optional) Iteration path prefix. If provided, the solution appends current month and year 
-      automatically (e.g., prefix 'MyProject\Sprint' becomes 'MyProject\Sprint March 2026').
+      (Optional) Iteration path prefix. If provided, the solution appends a bi-weekly sprint 
+      identifier automatically (e.g., prefix 'VF UK IT Cloud Infrastructure' becomes 
+      'VF UK IT Cloud Infrastructure\Sprint 1 Apr FY 26-27').
       Leave empty to use ADO project default iteration.
     Default: ""
+
+  EnableAutoActivate:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+    Description: |
+      (Optional) When enabled, subsequent Health notifications for already-tracked events 
+      will set the Feature status to Active and update the Iteration Path to the current sprint.
   
   S3BucketName:
     Type: String
@@ -129,6 +143,7 @@ Conditions:
   IsTagModel: !Equals [!Ref DeployModel, 'Tag']
   HasAreaPath: !Not [!Equals [!Ref ADOAreaPath, ""]]
   HasIterationPrefix: !Not [!Equals [!Ref ADOIterationPathPrefix, ""]]
+  IsAutoActivateEnabled: !Equals [!Ref EnableAutoActivate, "true"]
 
 Resources:
   # DynamoDB Mapping Tables (one per deployment model)
@@ -339,6 +354,10 @@ Resources:
           ADO_ITERATION_PATH_PREFIX: !If
             - HasIterationPrefix
             - !Ref ADOIterationPathPrefix
+            - !Ref "AWS::NoValue"
+          ENABLE_AUTO_ACTIVATE: !If
+            - IsAutoActivateEnabled
+            - "true"
             - !Ref "AWS::NoValue"
       MemorySize: 256
       Timeout: 240
