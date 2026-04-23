@@ -35,6 +35,16 @@ ado_area_path = os.environ.get('ADO_AREA_PATH', '')
 ado_iteration_prefix = os.environ.get('ADO_ITERATION_PATH_PREFIX', '')
 enable_auto_activate = os.environ.get('ENABLE_AUTO_ACTIVATE', 'false').lower() == 'true'
 
+# Parse optional custom fields for Feature work items
+ado_custom_fields = []
+_custom_fields_raw = os.environ.get('ADO_CUSTOM_FIELDS', '')
+if _custom_fields_raw:
+    try:
+        ado_custom_fields = json.loads(_custom_fields_raw)
+        logger.info(f"Loaded {len(ado_custom_fields)} custom fields")
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse ADO_CUSTOM_FIELDS: {e}")
+
 # Setup boto3 session
 session = boto3.session.Session()
 
@@ -234,6 +244,10 @@ def build_feature_payload(event_body, identifier, resources, area_path):
     iteration_path = get_iteration_path()
     if iteration_path:
         patch.append({"op": "add", "path": "/fields/System.IterationPath", "value": iteration_path})
+
+    # Append custom required fields
+    for cf in ado_custom_fields:
+        patch.append({"op": "add", "path": f"/fields/{cf['field']}", "value": cf['value']})
 
     return patch, title
 

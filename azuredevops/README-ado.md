@@ -113,6 +113,7 @@ zip -r HealthEventADOIntegration.zip HealthEventADOIntegration.py
 | **ADOIterationPathPrefix** | Iteration path prefix in ADO. The solution appends a bi-weekly sprint identifier automatically using the format `Sprint N Mon FY YY-YY` (e.g., `Sprint 1 Apr FY 26-27` for the first half of April in financial year 2026-27). If left empty, ADO defaults to the project root iteration. | `VF UK IT Cloud Infrastructure` |
 | **ADOAreaPath** | Fixed Area Path for all work items. If set, this overrides DynamoDB-based routing for Area Path assignment. If left empty, Area Path is determined by the Account/Service/Tag routing model via DynamoDB mapping. | `VF UK IT Cloud Infrastructure\Operations and Support` |
 | **EnableAutoActivate** | When set to `true`, subsequent Health notifications for already-tracked events will update the Feature status to "Active" and reassign it to the current sprint iteration. Default: `false`. | `true` |
+| **ADOCustomFields** | JSON-encoded list of custom fields to include when creating Feature work items. Use this when your ADO project has required custom fields on the Feature work item type. Each entry needs `field` (the ADO field reference name) and `value`. | `[{"field":"Custom.ProjectContacts","value":"Cloud Team"},{"field":"Custom.DomainsorDepartments","value":"Infrastructure"}]` |
 
 #### Conditional Parameters (Tag Model Only)
 
@@ -270,11 +271,16 @@ Example request body:
         "op": "add",
         "path": "/fields/System.Description",
         "value": "<p>Event Description: Scheduled maintenance for EC2 instances...</p><p><b>Affected Resources:</b></p><p>Resource: arn:aws:ec2:us-east-1:123456789012:instance/i-1234567890abcdef0<br/>Status: OPEN<br/>Last Updated: 2023-10-15T10:30:00Z</p>"
+    },
+    {
+        "op": "add",
+        "path": "/fields/Custom.ProjectContacts",
+        "value": "Cloud Team"
     }
 ]
 ```
 
-> **Note**: The `System.Description` field accepts HTML content. The `System.IterationPath` is dynamically constructed from the `ADOIterationPathPrefix` CloudFormation parameter using a bi-weekly sprint naming convention (`Sprint N Mon FY YY-YY`). If the prefix is not configured, the iteration path field is omitted and ADO uses the project default.
+> **Note**: The `System.Description` field accepts HTML content. If your ADO project has custom required fields on the Feature work item type (e.g., `Custom.ProjectContacts`), configure them via the `ADOCustomFields` CloudFormation parameter — they will be appended to the patch document automatically. The `System.IterationPath` is dynamically constructed from the `ADOIterationPathPrefix` CloudFormation parameter using a bi-weekly sprint naming convention (`Sprint N Mon FY YY-YY`). If the prefix is not configured, the iteration path field is omitted and ADO uses the project default.
 
 **Step 2: Create the Child Task**
 
@@ -372,6 +378,7 @@ Example request body:
 | **Area Path** | `/fields/System.AreaPath` | Fixed via `ADOAreaPath` parameter, or determined by DynamoDB routing model |
 | **Iteration Path** | `/fields/System.IterationPath` | Dynamically set from `ADOIterationPathPrefix` + bi-weekly sprint identifier (`Sprint N Mon FY YY-YY`). Updated to current sprint on subsequent notifications if `EnableAutoActivate` is `true`. |
 | **Description** | `/fields/System.Description` | AWS Health event description with affected resource details (HTML) |
+| **Custom Fields** | As configured via `ADOCustomFields` | Any additional required fields defined by your ADO process template |
 
 **Child Task:**
 
@@ -496,6 +503,7 @@ Test with sample events from the `test/` directory (if available), or wait for a
 - If `ADOIterationPathPrefix` is configured, verify the resulting iteration path (e.g., `MyProject\Sprint 1 Apr FY 26-27`) exists in the ADO project. Sprints must be created in ADO ahead of time.
 - If using multi-route mode, check that the Area Path in the DynamoDB mapping exists in the ADO project
 - If using single-route mode, check that the `ADOAreaPath` CloudFormation parameter value exists in the ADO project
+- If the error mentions `RuleValidationErrors` with `Required, InvalidEmpty` for custom fields, your ADO process template has mandatory custom fields on the Feature work item type. Use the `ADOCustomFields` CloudFormation parameter (or Lambda environment variable `ADO_CUSTOM_FIELDS`) to provide values for these fields. See the [Optional Parameters](#optional-parameters) section for the JSON format.
 
 #### 4. Missing Work Items
 - Check SQS queues for stuck messages

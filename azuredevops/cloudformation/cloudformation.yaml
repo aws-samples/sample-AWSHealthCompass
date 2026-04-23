@@ -19,6 +19,10 @@ Metadata:
           - ADOIterationPathPrefix
           - EnableAutoActivate
       - Label:
+          default: "Advanced Configuration"
+        Parameters:
+          - ADOCustomFields
+      - Label:
           default: "Lambda Code Location"
         Parameters:
           - S3BucketName
@@ -43,6 +47,8 @@ Metadata:
         default: "Auto-Activate Feature on Update (Optional)"
       S3BucketName:
         default: "S3 Bucket Name"
+      ADOCustomFields:
+        default: "Custom Fields for Feature Work Items (JSON)"
       HealthEventProcessorLambdaKey:
         default: "Health Event Processor Lambda S3 Key"
       HealthEventADOIntegrationLambdaKey:
@@ -114,6 +120,14 @@ Parameters:
       (Optional) When enabled, subsequent Health notifications for already-tracked events 
       will set the Feature status to Active and update the Iteration Path to the current sprint.
   
+  ADOCustomFields:
+    Type: String
+    Description: |
+      (Optional) JSON-encoded list of custom fields to include when creating Feature work items.
+      Each entry must have "field" (the ADO field reference name) and "value".
+      Example: [{"field":"Custom.ProjectContacts","value":"Cloud Team"},{"field":"Custom.DomainsorDepartments","value":"Infrastructure"}]
+    Default: ""
+
   S3BucketName:
     Type: String
     Description: S3 bucket containing Lambda code
@@ -144,6 +158,7 @@ Conditions:
   HasAreaPath: !Not [!Equals [!Ref ADOAreaPath, ""]]
   HasIterationPrefix: !Not [!Equals [!Ref ADOIterationPathPrefix, ""]]
   IsAutoActivateEnabled: !Equals [!Ref EnableAutoActivate, "true"]
+  HasCustomFields: !Not [!Equals [!Ref ADOCustomFields, ""]]
 
 Resources:
   # DynamoDB Mapping Tables (one per deployment model)
@@ -358,6 +373,10 @@ Resources:
           ENABLE_AUTO_ACTIVATE: !If
             - IsAutoActivateEnabled
             - "true"
+            - !Ref "AWS::NoValue"
+          ADO_CUSTOM_FIELDS: !If
+            - HasCustomFields
+            - !Ref ADOCustomFields
             - !Ref "AWS::NoValue"
       MemorySize: 256
       Timeout: 240

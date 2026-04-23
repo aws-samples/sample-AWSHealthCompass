@@ -50,7 +50,8 @@ aws cloudformation create-stack \
 ```
     ParameterKey=ADOAreaPath,ParameterValue=<your-area-path> \
     ParameterKey=ADOIterationPathPrefix,ParameterValue=<your-iteration-prefix> \
-    ParameterKey=EnableAutoActivate,ParameterValue=true
+    ParameterKey=EnableAutoActivate,ParameterValue=true \
+    ParameterKey=ADOCustomFields,ParameterValue='[{"field":"Custom.FieldName","value":"FieldValue"}]'
 ```
 
 **Tag model** — append these:
@@ -204,6 +205,7 @@ If tests fail, check in this order:
 3. **DynamoDB mapping** — Verify your mapping table has the correct entries for the identifier in your test event
 4. **ADO PAT** — Verify the PAT hasn't expired and has the correct scope
 5. **Area Path / Iteration Path** — Verify these exist in your ADO project
+6. **Custom required fields** — If CloudWatch Logs show a 400 error with `RuleValidationErrors` and `Required, InvalidEmpty`, your ADO project has mandatory custom fields. Set the `ADO_CUSTOM_FIELDS` environment variable on the ADO Integration Lambda or use the `ADOCustomFields` CloudFormation parameter.
 
 ## Cleanup
 
