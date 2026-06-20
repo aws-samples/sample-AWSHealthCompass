@@ -18,6 +18,7 @@ Metadata:
           - ADOAreaPath
           - ADOIterationPathPrefix
           - EnableAutoActivate
+          - EnableAutoResolve
       - Label:
           default: "Advanced Configuration"
         Parameters:
@@ -45,6 +46,8 @@ Metadata:
         default: "Iteration Path Prefix (Optional)"
       EnableAutoActivate:
         default: "Auto-Activate Feature on Update (Optional)"
+      EnableAutoResolve:
+        default: "Auto-Resolve Feature when All Resources Resolved (Optional)"
       S3BucketName:
         default: "S3 Bucket Name"
       ADOCustomFields:
@@ -119,6 +122,16 @@ Parameters:
     Description: |
       (Optional) When enabled, subsequent Health notifications for already-tracked events 
       will set the Feature status to Active and update the Iteration Path to the current sprint.
+
+  EnableAutoResolve:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+    Description: |
+      (Optional) When enabled, automatically sets a Feature work item to Resolved 
+      when all affected resources under it have transitioned to RESOLVED status in AWS Health.
   
   ADOCustomFields:
     Type: String
@@ -158,6 +171,7 @@ Conditions:
   HasAreaPath: !Not [!Equals [!Ref ADOAreaPath, ""]]
   HasIterationPrefix: !Not [!Equals [!Ref ADOIterationPathPrefix, ""]]
   IsAutoActivateEnabled: !Equals [!Ref EnableAutoActivate, "true"]
+  IsAutoResolveEnabled: !Equals [!Ref EnableAutoResolve, "true"]
   HasCustomFields: !Not [!Equals [!Ref ADOCustomFields, ""]]
 
 Resources:
@@ -372,6 +386,10 @@ Resources:
             - !Ref "AWS::NoValue"
           ENABLE_AUTO_ACTIVATE: !If
             - IsAutoActivateEnabled
+            - "true"
+            - !Ref "AWS::NoValue"
+          ENABLE_AUTO_RESOLVE: !If
+            - IsAutoResolveEnabled
             - "true"
             - !Ref "AWS::NoValue"
           ADO_CUSTOM_FIELDS: !If

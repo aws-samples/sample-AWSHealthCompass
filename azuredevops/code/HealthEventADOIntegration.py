@@ -34,6 +34,7 @@ ado_org_url = ado_org_url.rstrip('/')
 ado_area_path = os.environ.get('ADO_AREA_PATH', '')
 ado_iteration_prefix = os.environ.get('ADO_ITERATION_PATH_PREFIX', '')
 enable_auto_activate = os.environ.get('ENABLE_AUTO_ACTIVATE', 'false').lower() == 'true'
+enable_auto_resolve = os.environ.get('ENABLE_AUTO_RESOLVE', 'false').lower() == 'true'
 
 # Parse optional custom fields for Feature work items
 ado_custom_fields = []
@@ -352,6 +353,32 @@ def activate_work_item(project, work_item_id, headers):
         return None
 
 
+def resolve_work_item(project, work_item_id, headers):
+    """Update a work item's state to Resolved when all resources are resolved"""
+    patch = [
+        {"op": "replace", "path": "/fields/System.State", "value": "Resolved"}
+    ]
+
+    url = f"{ado_org_url}/{project}/_apis/wit/workitems/{work_item_id}?api-version=7.1"
+    logger.info(f"Resolving work item {work_item_id} in project {project}")
+
+    response = http.request('PATCH', url, headers=headers, body=json.dumps(patch))
+
+    if response.status == 200:
+        logger.info(f"Successfully resolved work item {work_item_id}")
+        return json.loads(response.data)
+    else:
+        logger.warning(f"Failed to resolve work item {work_item_id}. Status: {response.status}, Response: {response.data.decode()}")
+        return None
+
+
+def all_resources_resolved(resources):
+    """Check if all resources in a list have RESOLVED status"""
+    if not resources:
+        return False
+    return all(r.get('status') == 'RESOLVED' for r in resources)
+
+
 def get_project_and_area_path(event_body, identifier):
     """Look up ADO project name and area path from DynamoDB mapping table"""
     deploy_model = event_body['deployModel']
@@ -411,6 +438,10 @@ def lambda_handler(event, context):
     headers_patch = get_ado_headers(pat)
     headers_json = get_ado_headers_json(pat)
 
+    # Collect all resources per Feature for final resolve/activate decision
+    # Key: (work_item_id, project), Value: list of resource dicts with status
+    feature_resources_map = {}
+
     # Process untracked resources (new work items)
     untracked_resources = event_body.get('untrackedResources', {})
     if untracked_resources is None or untracked_resources == []:
@@ -438,15 +469,17 @@ def lambda_handler(event, context):
             comment_payload = build_comment_payload(resources)
             add_comment(existing_project or project, existing_work_item_id, comment_payload, headers_json)
 
-            # Auto-activate if enabled
-            if enable_auto_activate:
-                activate_work_item(existing_project or project, existing_work_item_id, headers_patch)
-
             # Track all resources
             for resource in resources:
                 resource_arn = get_resource_arn(resource)
                 if resource_arn:
                     store_event_tracking(eventArn, startTime, existing_work_item_id, resource_arn, project, identifier)
+
+            # Collect resources for final resolve/activate decision
+            key = (existing_work_item_id, existing_project or project)
+            if key not in feature_resources_map:
+                feature_resources_map[key] = []
+            feature_resources_map[key].extend(resources)
         else:
             logger.info(f"No existing Feature found for event {eventArn}, creating new Feature + Child Task")
 
@@ -476,6 +509,12 @@ def lambda_handler(event, context):
                         store_event_tracking(eventArn, startTime, feature_id, resource_arn, project, identifier)
                     else:
                         logger.warning(f"Could not extract resource ARN from resource: {resource}")
+
+                # Collect resources for final resolve/activate decision
+                key = (feature_id, project)
+                if key not in feature_resources_map:
+                    feature_resources_map[key] = []
+                feature_resources_map[key].extend(resources)
 
     # Process tracked resources (updates to existing Features)
     logger.info(f"Processing tracked resources for {deployModel} mode")
@@ -507,9 +546,19 @@ def lambda_handler(event, context):
             comment_payload = build_comment_payload(resources)
             add_comment(wi_project, wi_id, comment_payload, headers_json)
 
-            # Auto-activate if enabled
-            if enable_auto_activate:
-                activate_work_item(wi_project, wi_id, headers_patch)
+            # Collect resources for final resolve/activate decision
+            key = (wi_id, wi_project)
+            if key not in feature_resources_map:
+                feature_resources_map[key] = []
+            feature_resources_map[key].extend(resources)
+
+    # Final resolve/activate decision for each Feature touched in this execution
+    for (wi_id, wi_project), resources in feature_resources_map.items():
+        if enable_auto_resolve and all_resources_resolved(resources):
+            logger.info(f"All resources resolved for Feature {wi_id}, resolving work item")
+            resolve_work_item(wi_project, wi_id, headers_patch)
+        elif enable_auto_activate:
+            activate_work_item(wi_project, wi_id, headers_patch)
 
 
 logger.info('Lambda function initialized')
