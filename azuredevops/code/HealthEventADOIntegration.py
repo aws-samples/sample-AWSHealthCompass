@@ -135,18 +135,20 @@ def find_existing_workitem_for_event(event_arn, identifier):
         response = track_table.query(
             IndexName='TETkeyIndex',
             KeyConditionExpression='eventArn = :event_arn',
+            FilterExpression='identifier = :identifier',
             ExpressionAttributeValues={
-                ':event_arn': event_arn
+                ':event_arn': event_arn,
+                ':identifier': identifier
             }
         )
 
         for item in response.get('Items', []):
             if 'adoWorkItemId' in item:
                 work_item_id = int(item['adoWorkItemId'])
-                logger.info(f"Found existing work item {work_item_id} for event {event_arn}")
+                logger.info(f"Found existing work item {work_item_id} for event {event_arn} and identifier {identifier}")
                 return work_item_id, item.get('adoProject', '')
 
-        logger.info(f"No existing work item found for event {event_arn}")
+        logger.info(f"No existing work item found for event {event_arn} and identifier {identifier}")
         return None, None
 
     except ClientError as e:
@@ -154,7 +156,7 @@ def find_existing_workitem_for_event(event_arn, identifier):
         return None, None
 
 
-def store_event_tracking(event_arn, start_time, work_item_id, resource_arn, project=None):
+def store_event_tracking(event_arn, start_time, work_item_id, resource_arn, project=None, identifier=None):
     """Store event tracking information in DynamoDB"""
     from dateutil.relativedelta import relativedelta
 
@@ -181,6 +183,9 @@ def store_event_tracking(event_arn, start_time, work_item_id, resource_arn, proj
 
         if project:
             item['adoProject'] = project
+
+        if identifier:
+            item['identifier'] = identifier
 
         track_table.put_item(Item=item)
         logger.info(f"Successfully stored event tracking for resource: {resource_arn} with work item ID: {work_item_id}")
@@ -441,7 +446,7 @@ def lambda_handler(event, context):
             for resource in resources:
                 resource_arn = get_resource_arn(resource)
                 if resource_arn:
-                    store_event_tracking(eventArn, startTime, existing_work_item_id, resource_arn, project)
+                    store_event_tracking(eventArn, startTime, existing_work_item_id, resource_arn, project, identifier)
         else:
             logger.info(f"No existing Feature found for event {eventArn}, creating new Feature + Child Task")
 
@@ -468,7 +473,7 @@ def lambda_handler(event, context):
                 for resource in resources:
                     resource_arn = get_resource_arn(resource)
                     if resource_arn:
-                        store_event_tracking(eventArn, startTime, feature_id, resource_arn, project)
+                        store_event_tracking(eventArn, startTime, feature_id, resource_arn, project, identifier)
                     else:
                         logger.warning(f"Could not extract resource ARN from resource: {resource}")
 
