@@ -25,6 +25,8 @@
 
 ## Architecture
 
+ ![ADO-AWS Health Compass Architecture](./images/architecture-diagram-ado-integration.png)
+
 The solution consists of the following components:
 
 1. **AWS Health Events**: Supports single account or event aggregation across Organization using AWS Health's organizational view with delegated account feature.
