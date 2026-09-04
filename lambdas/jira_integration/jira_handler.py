@@ -1,6 +1,6 @@
 """JIRA-specific handler — thin wiring layer between Lambda entrypoint and orchestrator.
 
-STORY-054: Instantiates JiraClient + JiraFormatter, delegates to itsm_orchestrator.
+Instantiates JiraClient + JiraFormatter, delegates to itsm_orchestrator.
 This module contains JIRA-specific error handling and credential management.
 
 Future ServiceNow Lambda would have `servicenow_handler.py` with the same pattern.
@@ -70,7 +70,7 @@ _enabled_platforms: Optional[list] = None
 
 
 def _get_enabled_platforms() -> list:
-    """Load and cache enabled platforms from ConfigTable (STORY-093)."""
+    """Load and cache enabled platforms from ConfigTable."""
     global _enabled_platforms
     if _enabled_platforms is not None:
         return _enabled_platforms
@@ -216,7 +216,7 @@ def _create_tickets_bulk(
 
     issues: List[Dict[str, Any]] = []
     issue_indices: List[int] = []
-    # STORY-093: Read from platforms.jira with backward compat fallback
+    # Read from platforms.jira with backward compat fallback
     jira_target = routing.get("platforms", {}).get("jira", {})
     project = jira_target.get("project") or routing.get("resolvedProject", "")
     issue_type = jira_target.get("issueType") or routing.get("issueType", "Task")
@@ -465,7 +465,7 @@ def _handle_dashboard_invoke(event: dict, context: Any) -> dict:
                     ),
                     ExpressionAttributeNames={
                         "#t": "tickets",
-                        "#platform": "jira",  # SEC-111-1: hardcoded platform key
+                        "#platform": "jira",  # hardcoded platform key
                     },
                     ExpressionAttributeValues={
                         ":ticket_data": {
@@ -483,7 +483,7 @@ def _handle_dashboard_invoke(event: dict, context: Any) -> dict:
             except ClientError as exc:
                 error_code = exc.response.get("Error", {}).get("Code", "")
                 if error_code == "ValidationException":
-                    # Fallback: tickets map doesn't exist (pre-STORY-111 item)
+                    # Fallback: tickets map doesn't exist (legacy item)
                     try:
                         _resources_table.update_item(
                             Key={"campaignId": campaign_id, "trackingKey": tracking_key},
@@ -637,7 +637,7 @@ def handle(event: dict, context: Any) -> dict:
     if not records:
         return _SUCCESS
 
-    # STORY-093: Global kill switch
+    # Global kill switch
     if "jira" not in _get_enabled_platforms():
         logger.debug("JIRA platform globally disabled — skipping all events")
         return _SUCCESS
@@ -730,7 +730,7 @@ def handle(event: dict, context: Any) -> dict:
             logger.info("Event not dispatched — skipping — event_arn=%s", event_arn)
             return _SUCCESS
 
-        # Gate: routing (STORY-093: multi-platform routing)
+        # Gate: routing
         routing = payload.get("routing", {})
         platforms = routing.get("platforms", {})
         jira_target = platforms.get("jira")

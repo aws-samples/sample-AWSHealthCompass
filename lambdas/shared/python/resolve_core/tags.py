@@ -26,9 +26,9 @@ logger = logging.getLogger("resolve_core")
 
 # --- Module-level constants (immutable) ---
 
-_MAX_TAG_KEY_LEN = 255     # IC-7, AC-2
-_MAX_TAG_VALUE_LEN = 1024  # IC-7, AC-2
-_MAX_TAG_ENTRIES = 100     # IC-7, SR-5
+_MAX_TAG_KEY_LEN = 255     # IC-7
+_MAX_TAG_VALUE_LEN = 1024  # IC-7
+_MAX_TAG_ENTRIES = 100     # IC-7
 
 _LABEL_INVALID_CHARS = re.compile(r"[^a-z0-9\-_.]")  # IC-9
 _LABEL_MULTI_HYPHEN = re.compile(r"-{2,}")            # IC-10
@@ -132,7 +132,7 @@ def normalize_tags(tags: Any) -> dict[str, str]:
     Converts ``None``, missing, or non-dict values to ``{}``. Coerces
     all keys and values to strings, strips whitespace-only keys, and
     truncates keys to 255 chars and values to 1024 chars. Caps entries
-    at 100 (SR-5).
+    at 100.
 
     Args:
         tags: Tag dict from a Health event (``accountTags`` or
@@ -146,7 +146,7 @@ def normalize_tags(tags: Any) -> dict[str, str]:
 
     result: dict[str, str] = {}
     for key, value in tags.items():
-        if len(result) >= _MAX_TAG_ENTRIES:  # IC-4, SR-5
+        if len(result) >= _MAX_TAG_ENTRIES:  # IC-4
             logger.warning(
                 "Tag entries exceed maximum — "
                 "error_code=TAG_ENTRIES_EXCEEDED max=%d total=%d",
@@ -155,7 +155,7 @@ def normalize_tags(tags: Any) -> dict[str, str]:
             )  # IC-8: log count only, no keys/values
             break
 
-        str_key = str(key).strip()  # IC-2, SR-7
+        str_key = str(key).strip()  # IC-2
         if not str_key:
             continue
 

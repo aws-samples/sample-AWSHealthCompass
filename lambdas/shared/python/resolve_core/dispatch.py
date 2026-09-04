@@ -10,9 +10,6 @@ items from ConfigTable and returns a ``DispatchConfig`` dict.
 
 Consumers: Processor Lambda (Steps 10–12), Reconciliation Lambda.
 Dependencies: Python stdlib only for evaluation; boto3 for config loading.
-
-Design reference: STORY-016 / 03_dumbledore_design.md §3–§5.
-BRD reference: A-ING-4, A-CFG-5, BRD §14.4.
 """
 
 from __future__ import annotations
@@ -27,7 +24,7 @@ logger = logging.getLogger("resolve_core")
 
 _PLE_SUFFIX = "_PLANNED_LIFECYCLE_EVENT"
 _VALID_MODES = ("all", "ple_only", "custom")
-_MAX_DISPATCH_RULES = 100  # SR-004a / FINDING-IMPL-04
+_MAX_DISPATCH_RULES = 100  # / FINDING-IMPL-04
 
 __all__ = [
     "evaluate_dispatch",
@@ -48,7 +45,7 @@ _RULE_ID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 def validate_dispatch_pattern(pattern: str) -> bool:
     """Return True if pattern matches ^AWS_[A-Z0-9_]+\\*?$.
 
-    SEC-030-01: Enforced server-side before every DynamoDB write.
+    Enforced server-side before every DynamoDB write.
     """
     return isinstance(pattern, str) and bool(_PATTERN_REGEX.match(pattern))
 
@@ -61,9 +58,7 @@ def validate_event_categories(categories: list) -> bool:
 
 
 def validate_rule_id(rule_id: str) -> bool:
-    """Return True if ruleId matches ^[a-zA-Z0-9_-]{1,64}$.
-
-    SEC-030-05.3: Validated before pk construction.
+    """Return True if ruleId matches ^[a-zA-Z0-9_-]{1,64}$..3: Validated before pk construction.
     """
     return isinstance(rule_id, str) and bool(_RULE_ID_REGEX.match(rule_id))
 
@@ -98,7 +93,7 @@ def evaluate_dispatch(
     """
     mode = config.get("mode", "all") if isinstance(config, dict) else "all"
 
-    # STORY-076: Actionability filter
+    # Actionability filter
     actionability_filter = config.get("actionability_filter", "all_actionable") if isinstance(config, dict) else "all_actionable"
     if actionability_filter == "action_required_only":
         if actionability != "ACTION_REQUIRED":

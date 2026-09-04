@@ -1,4 +1,4 @@
-"""CMDB-based routing for ServiceNow (STORY-087).
+"""CMDB-based routing for ServiceNow.
 
 Provides CMDB CI lookup to resolve assignment group from resource ARN.
 Only active when platform is ServiceNow and CMDB routing is enabled.

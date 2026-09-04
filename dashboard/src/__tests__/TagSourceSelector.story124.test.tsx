@@ -1,27 +1,24 @@
 /**
- * Vitest coverage for STORY-124 (Resource-Tags epic, story 2 of 6):
+ * Vitest coverage for the tagSource selector:
  *   Expose a selectable, PERSISTED `tagSource` (resource / account / both) in the
  *   onboarding wizard tag-routing step AND the RoutingEditModal, sent on the
- *   EXISTING POST /config/routing/strategy body (the STORY-123 transport), and
+ *   EXISTING POST /config/routing/strategy body, and
  *   round-tripped via the additive `routing.tagRouting.tagSource` summary field.
  *
- * Source of truth: 01_hermione_story.md (AC-1..AC-6), 02_luna_ux.md,
- * 03_dumbledore_design.md (TR-1..TR-9, IAC-1..IAC-7, AD-1..AD-4), 10_harry_code.md.
+ * Coverage map:
+ *   - selector present on BOTH surfaces only when tag routing enabled
+ *   - selecting resource/account/both persists that verbatim value as
+ *     `tagSource` on the SAME /config/routing/strategy POST (both surfaces)
+ *   - default 'account' is persisted explicitly (never silent); an
+ *     unknown/legacy stored value renders as 'account' without error
+ *   - round-trip: summary `routing.tagRouting.tagSource` is read back and the
+ *     control reflects it (wizard via config prop; modal via /config/summary)
+ *   - nested shape preserved: no flat/nested tagRouting or
+ *     tagRoutingEnabled ever appears on the wire alongside tagSource
  *
- * Coverage map (AC / IAC → test):
- *   AC-1 / IAC-1 — selector present on BOTH surfaces only when tag routing enabled
- *   AC-2 / IAC-2 — selecting resource/account/both persists that verbatim value as
- *                  `tagSource` on the SAME /config/routing/strategy POST (both surfaces)
- *   AC-3 / IAC-3 — default 'account' is persisted explicitly (never silent); an
- *                  unknown/legacy stored value renders as 'account' without error
- *   AC-3 round-trip — summary `routing.tagRouting.tagSource` is read back and the
- *                     control reflects it (wizard via config prop; modal via /config/summary)
- *   AC-4 / IAC-4 — STORY-113 nested shape preserved: no flat/nested tagRouting or
- *                  tagRoutingEnabled ever appears on the wire alongside tagSource
- *
- * Style mirrors ConfigurationWizardTagRouting.story123.test.tsx and
- * RoutingEditModal.story113.test.tsx: mock ../api, ../config, ../PlatformContext;
- * dynamic-import the component; drive the UI via role/label queries.
+ * Style mirrors the other tag-routing suites: mock ../api, ../config,
+ * ../PlatformContext; dynamic-import the component; drive the UI via
+ * role/label queries.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -98,7 +95,7 @@ function allRequestBodies(): any[] {
 // SURFACE 1 — ConfigurationWizard
 // ===========================================================================
 
-describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
+describe('tagSource selector — ConfigurationWizard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installWizardHappyMock();
@@ -161,7 +158,7 @@ describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
     await user.click(await screen.findByRole('button', { name: /Save & Activate/i }));
   }
 
-  // AC-1 / IAC-1 — selector hidden until tag routing enabled, then present.
+  // Selector hidden until tag routing enabled, then present.
   it('shows the "Tag source" selector only after tag routing is enabled', async () => {
     const user = userEvent.setup();
     await renderWizard();
@@ -178,7 +175,7 @@ describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
     expect(screen.getByRole('radio', { name: /Both \(resource, then account\)/i })).toBeInTheDocument();
   });
 
-  // AC-3 / IAC-3 — default is 'account', persisted explicitly (never silent).
+  // Default is 'account', persisted explicitly (never silent).
   it('defaults to account and persists tagSource:"account" explicitly when the operator makes no choice', async () => {
     const user = userEvent.setup();
     const { onSave } = await renderWizard();
@@ -196,7 +193,7 @@ describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled());
   });
 
-  // AC-2 / IAC-2 — selecting resource persists tag_source="resource".
+  // Selecting resource persists tag_source="resource".
   it('persists tagSource:"resource" when the operator selects Resource tags', async () => {
     const user = userEvent.setup();
     await renderWizard();
@@ -214,7 +211,7 @@ describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
     expect(body.tagSource).toBe('resource');
   });
 
-  // AC-2 / IAC-2 — selecting both persists tag_source="both".
+  // Selecting both persists tag_source="both".
   it('persists tagSource:"both" when the operator selects Both', async () => {
     const user = userEvent.setup();
     await renderWizard();
@@ -229,7 +226,7 @@ describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
     expect(strategyBody().tagSource).toBe('both');
   });
 
-  // AC-3 round-trip — a persisted 'resource' config hydrates the selector.
+  // Round-trip: a persisted 'resource' config hydrates the selector.
   it('round-trips a persisted "resource" tagSource from the config into the selector', async () => {
     const user = userEvent.setup();
     const config = {
@@ -252,7 +249,7 @@ describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
     expect(screen.getByRole('radio', { name: /Account tags/i })).not.toBeChecked();
   });
 
-  // AC-3 — unknown/legacy stored value renders as 'account' without error.
+  // Unknown/legacy stored value renders as 'account' without error.
   it('renders an unknown/legacy stored tagSource as the safe default "account"', async () => {
     const user = userEvent.setup();
     const config = {
@@ -274,7 +271,7 @@ describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
     expect(screen.getByRole('radio', { name: /Resource tags/i })).not.toBeChecked();
   });
 
-  // AC-4 / IAC-4 — STORY-113 nested shape preserved; no stray tagRouting on wire.
+  // Nested shape preserved; no stray tagRouting on wire.
   it('adds tagSource to the strategy body without introducing any flat/nested tagRouting field', async () => {
     const user = userEvent.setup();
     await renderWizard();
@@ -300,7 +297,7 @@ describe('STORY-124 tagSource selector — ConfigurationWizard', () => {
 // SURFACE 2 — RoutingEditModal
 // ===========================================================================
 
-describe('STORY-124 tagSource selector — RoutingEditModal', () => {
+describe('tagSource selector — RoutingEditModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -356,7 +353,7 @@ describe('STORY-124 tagSource selector — RoutingEditModal', () => {
     await user.click(await screen.findByRole('button', { name: /Save Changes/i }));
   }
 
-  // AC-1 / IAC-1 — selector hidden until enabled, then offers all three.
+  // Selector hidden until enabled, then offers all three.
   it('shows the "Tag source" selector only after the toggle is on, offering resource/account/both', async () => {
     installModalMock(makeSummary({ enabled: false }));
     const user = userEvent.setup();
@@ -372,7 +369,7 @@ describe('STORY-124 tagSource selector — RoutingEditModal', () => {
     expect(screen.getByRole('radio', { name: /Both \(resource, then account\)/i })).toBeInTheDocument();
   });
 
-  // AC-3 — default 'account' when enabling fresh.
+  // Default 'account' when enabling fresh.
   it('defaults the selector to account when enabling tag routing on a fresh config', async () => {
     installModalMock(makeSummary({ enabled: false }));
     const user = userEvent.setup();
@@ -382,7 +379,7 @@ describe('STORY-124 tagSource selector — RoutingEditModal', () => {
     expect(screen.getByRole('radio', { name: /Account tags/i })).toBeChecked();
   });
 
-  // AC-2 / IAC-2 — selecting resource persists tag_source="resource".
+  // Selecting resource persists tag_source="resource".
   it('persists tagSource:"resource" on the strategy POST when Resource tags is selected', async () => {
     installModalMock(makeSummary({ enabled: false }));
     const user = userEvent.setup();
@@ -400,7 +397,7 @@ describe('STORY-124 tagSource selector — RoutingEditModal', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled());
   });
 
-  // AC-2 — selecting both persists tag_source="both".
+  // Selecting both persists tag_source="both".
   it('persists tagSource:"both" when Both is selected', async () => {
     installModalMock(makeSummary({ enabled: false }));
     const user = userEvent.setup();
@@ -414,7 +411,7 @@ describe('STORY-124 tagSource selector — RoutingEditModal', () => {
     expect(strategyBody().tagSource).toBe('both');
   });
 
-  // AC-3 round-trip — modal reads back persisted tagSource from /config/summary.
+  // Round-trip: modal reads back persisted tagSource from /config/summary.
   it('round-trips a persisted "both" tagSource from /config/summary into the selector', async () => {
     installModalMock(makeSummary({ enabled: true, tagKey: 'Team', tagSource: 'both' }));
     await renderModal();
@@ -423,7 +420,7 @@ describe('STORY-124 tagSource selector — RoutingEditModal', () => {
     expect(screen.getByRole('radio', { name: /Account tags/i })).not.toBeChecked();
   });
 
-  // AC-3 — legacy/unknown persisted value renders as safe default 'account'.
+  // Legacy/unknown persisted value renders as safe default 'account'.
   it('renders an unknown persisted tagSource as the safe default "account"', async () => {
     installModalMock(makeSummary({ enabled: true, tagKey: 'Team', tagSource: 'legacy-value' }));
     await renderModal();
@@ -431,7 +428,7 @@ describe('STORY-124 tagSource selector — RoutingEditModal', () => {
     expect(screen.getByRole('radio', { name: /Resource tags/i })).not.toBeChecked();
   });
 
-  // AC-4 / IAC-4 — STORY-113 nested shape preserved on the wire.
+  // Nested shape preserved on the wire.
   it('adds only tagSource to the strategy body — no flat/nested tagRouting field', async () => {
     installModalMock(makeSummary({ enabled: false }));
     const user = userEvent.setup();

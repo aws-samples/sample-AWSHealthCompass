@@ -42,7 +42,7 @@ function selectValueToCategories(val: string): string[] {
   return [val];
 }
 
-// STORY-124 (RT-02): tag-source selector. Values are sent verbatim as `tagSource`
+// Tag-source selector. Values are sent verbatim as `tagSource`
 // and match the backend _VALID_TAG_SOURCES exactly — no transform layer. Resource
 // is listed FIRST for discoverability (the marquee capability), while the default
 // selection stays 'account' (engine-aligned; zero behavior change on re-save).
@@ -61,7 +61,7 @@ const TAG_SOURCE_LABEL: Record<string, string> = {
 const TAG_SOURCE_GROUP_DESCRIPTION =
   `Choose where ${APP_NAME} reads the routing tag. If the selected source has no value for an event, routing automatically falls back to the account-ID mapping, then the default project — no event is dropped.`;
 
-/** Normalize a stored tag source to a valid selector value (SR-018-06: unknown -> account). */
+/** Normalize a stored tag source to a valid selector value (unknown -> account). */
 function normalizeTagSource(raw: unknown): 'resource' | 'account' | 'both' {
   return raw === 'resource' || raw === 'both' ? raw : 'account';
 }
@@ -106,26 +106,26 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
   const [loadingOrg, setLoadingOrg] = useState(false);
   const [tagRoutingEnabled, setTagRoutingEnabled] = useState(false);
   const [tagRoutingKey, setTagRoutingKey] = useState('');
-  // STORY-124 (RT-02): which source the routing tag is read from. Default
+  // Which source the routing tag is read from. Default
   // 'account' matches the engine/handler default so re-saving an existing
   // config changes nothing; the selector is always visible when tag routing is
   // enabled so the value is never silently persisted.
   const [tagSource, setTagSource] = useState<'resource' | 'account' | 'both'>('account');
-  // STORY-123 (RT-05): persistence result of the tag-routing strategy, distinct
+  // Persistence result of the tag-routing strategy, distinct
   // from the local toggle intent. Mutated ONLY inside saveAll; reset to 'unsaved'
   // whenever the toggle/key is edited. The Review step derives its "Enabled"
   // confirmation from this — an affirmative "Enabled" is shown ONLY on 'saved'
   // (a successful HTTP 200 persist), never from toggle intent alone.
   const [tagRoutingSaveState, setTagRoutingSaveState] = useState<'unsaved' | 'saving' | 'saved' | 'error'>('unsaved');
-  // STORY-125 (RT-03): tag value → routing-target mapping editor state. Lifted
-  // to the wizard parent (interface-review GAP-1) because the Step-2 content
+  // Tag value → routing-target mapping editor state. Lifted
+  // to the wizard parent because the Step-2 content
   // unmounts before saveAll fires from the Review step — saveAll MUST read this
   // parent state, never a ref to the unmounted editor. Mirrors accountMappings.
   const [tagMappings, setTagMappings] = useState<TagMappingRow[]>([]);
   const [removedTagValues, setRemovedTagValues] = useState<string[]>([]);
   const [tagMappingsLoadError, setTagMappingsLoadError] = useState<string | null>(null);
   const [tagMappingsLoading, setTagMappingsLoading] = useState(false);
-  // Per-row backend reasons keyed by tagValue, surfaced after a partial save (RT-14).
+  // Per-row backend reasons keyed by tagValue, surfaced after a partial save.
   const [tagMappingRowErrors, setTagMappingRowErrors] = useState<Record<string, string>>({});
   const [routingValidation, setRoutingValidation] = useState<Record<string, { valid: boolean; displayName?: string; error?: string }>>({});
   const [routingValidating, setRoutingValidating] = useState(false);
@@ -156,7 +156,7 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
     if (config.jira?.baseUrl) setJiraBaseUrl(config.jira.baseUrl);
     if (config.jira?.validated || config.servicenow?.validated) setConnectionValidated(true);
     if (config.routing?.defaultProject) setDefaultProject(config.routing.defaultProject);
-    // STORY-124 (RT-02): reflect the persisted tag source on the selector so a
+    // Reflect the persisted tag source on the selector so a
     // resource/both config round-trips truthfully; unknown/legacy -> 'account'.
     if (config.routing?.tagRouting?.tagSource) setTagSource(normalizeTagSource(config.routing.tagRouting.tagSource));
     if ((config.routing as any)?.snowAssignmentGroupId) setDefaultSnowGroupId((config.routing as any).snowAssignmentGroupId);
@@ -183,8 +183,8 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
       .catch(() => { /* Keep default ['jira'] on error */ });
   }, []);
 
-  // STORY-125 (RT-03): load persisted tag→target mappings for round-trip
-  // (AC-3). On failure show an error affordance (NOTE-F) rather than a silent
+  // Load persisted tag→target mappings for round-trip
+  // On failure show an error affordance rather than a silent
   // empty editor that could invite destructive re-entry.
   const loadTagMappings = async () => {
     setTagMappingsLoading(true);
@@ -267,7 +267,7 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
     finally { setLoadingOrg(false); }
   };
 
-  // Validate routing targets against ITSM API (STORY-084)
+  // Validate routing targets against ITSM API
   const validateRoutingTargets = async (): Promise<boolean> => {
     const allTargets = [defaultProject, ...accountMappings.map(m => m.jira_project)].filter(Boolean);
     const unique = [...new Set(allTargets)];
@@ -311,7 +311,7 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
     setSaving(true);
     setSaveErrors([]);
     const errors: string[] = [];
-    // SECURITY INVARIANT (STORY-115): if the dispatch save fails we MUST NOT
+    // SECURITY INVARIANT: if the dispatch save fails we MUST NOT
     // proceed to /config/activate (which would auto-write DISPATCH_PRESET={mode:'all'},
     // silently widening dispatch to the broadest setting).
     let dispatchFailed = false;
@@ -368,9 +368,9 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
       } catch (e: any) { errors.push(`Account mappings: ${e.message}`); }
     }
 
-    // 3.5 Save tag-routing strategy (STORY-123 / RT-01) — sequenced BEFORE
+    // 3.5 Save tag-routing strategy — sequenced BEFORE
     // /config/activate. Clones the working RoutingEditModal.handleSave strategy
-    // write path so the single ROUTING_STRATEGY item (surfaced as the STORY-113
+    // write path so the single ROUTING_STRATEGY item (surfaced as the
     // nested routing.tagRouting.enabled/.tagKey shape) stays the sole source of
     // truth — no parallel/flat field, no second endpoint.
     //
@@ -378,7 +378,7 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
     // The account-mode write actively clears any previously-persisted tag
     // strategy (handler blanks tag_key/tag_source when mode!='tag'), so re-running
     // onboarding with the toggle off cannot leave a stale tag strategy behind.
-    // This is independent of the STORY-115 dispatch gate: a tag-strategy failure
+    // This is independent of the dispatch gate: a tag-strategy failure
     // is surfaced and blocks a false "Enabled", but does NOT set dispatchFailed
     // and does NOT gate /config/activate (routing safely falls back to
     // account/default; the write is idempotent and retryable).
@@ -404,11 +404,11 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
       }
     }
 
-    // 3.6 Save tag→target mappings (STORY-125 / RT-03) — sequenced AFTER the
+    // 3.6 Save tag→target mappings — sequenced AFTER the
     // strategy POST (so ROUTING_STRATEGY.mode='tag' is persisted and the engine
     // will consult TAG_ROUTING#) and BEFORE /config/activate. persistTagMappings
     // runs DELETEs first, then one upsert POST. Only runs when tag routing is
-    // enabled; disabling never deletes existing mappings (NOTE-E). A
+    // enabled; disabling never deletes existing mappings. A
     // partial/failed result surfaces per-row and pushes to errors[] (blocking a
     // false "all done"), but — like the strategy step — does NOT set
     // dispatchFailed and does NOT gate /config/activate (routing safely falls
@@ -438,7 +438,7 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
       await apiFetch('/config/dispatch', { method: 'POST', body: JSON.stringify(buildDispatchBody(dispatchMode, actionabilityFilter, customRules)) });
     } catch (e: any) { dispatchFailed = true; errors.push(`Dispatch window: ${parseApiError(e)}`); }
 
-    // 5. Activate — SECURITY INVARIANT (STORY-115): skip activation if the
+    // 5. Activate — SECURITY INVARIANT: skip activation if the
     // dispatch save failed, so we never silently activate under the wrong
     // (widest) dispatch mode.
     if (!dispatchFailed) {
@@ -753,11 +753,11 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
     </Container>
   );
 
-  // Tag Routing summary row for the Review step (STORY-123 / RT-05).
+  // Tag Routing summary row for the Review step.
   // The affirmative green "Enabled" appears ONLY when the strategy POST returned
   // 200 (tagRoutingSaveState === 'saved'); a failed or not-yet-persisted state
   // never claims "Enabled". Toggle-off always reads "Disabled" in every save
-  // state (Luna interface-review IR-1), because no tag configuration is claimed.
+  // state, because no tag configuration is claimed.
   const renderTagRoutingSummary = () => {
     if (!tagRoutingEnabled) return 'Disabled';
     const n = tagMappings.length;
@@ -820,14 +820,14 @@ export default function ConfigurationWizard({ config, onSave }: Props) {
         }}
         activeStepIndex={activeStep}
         onNavigate={async ({ detail }) => {
-          // STORY-084: Validate routing targets when leaving Step 2 (Routing)
+          // Validate routing targets when leaving Step 2 (Routing)
           if (activeStep === 2 && detail.requestedStepIndex > 2) {
-            // STORY-123 submit guard: block advancing past Routing when tag
+            // Submit guard: block advancing past Routing when tag
             // routing is enabled but the tag key is blank (mirrors
             // RoutingEditModal.saveDisabled). The Tag Key FormField already shows
             // its errorText; this prevents a guaranteed 400 on Save & Activate.
             if (tagRoutingEnabled && !tagRoutingKey.trim()) return;
-            // STORY-125: block leaving Routing when tag mappings failed to load
+            // Block leaving Routing when tag mappings failed to load
             // (can't safely save) or have unresolved inline errors — mirrors the
             // tag-key guard; the editor already shows the inline reason.
             if (tagRoutingEnabled && tagMappingsLoadError) return;

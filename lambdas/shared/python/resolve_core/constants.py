@@ -3,11 +3,11 @@
 These are integration contract values — changing them has
 cross-module impact and must be coordinated.
 
-STORY-112: Extracted to prevent drift between ticket creation
+Extracted to prevent drift between ticket creation
 (write-side) and sync retrieval (read-side).
 """
 
-# JIRA label applied to all Compass-created tickets (BRD A-JIRA-9).
+# JIRA label applied to all Compass-created tickets.
 # Used by ticket_builder (write) and sync handler (read/query).
 #
 # This label value is a DATA-CONTRACT identifier: the write side
@@ -48,12 +48,12 @@ TICKET_SUMMARY_PREFIX = f"[{APP_NAME}]"
 JIRA_SECRET_DESCRIPTION = f"JIRA API credentials for {APP_NAME} integration"
 SERVICENOW_SECRET_DESCRIPTION = f"ServiceNow OAuth credentials for {APP_NAME} integration"
 
-# JIRA label for tickets routed to the default/orphan queue (BRD A-JIRA-10).
+# JIRA label for tickets routed to the default/orphan queue.
 # Used by ticket_builder (write) and sync handler (orphan count query).
 ORPHAN_LABEL = "orphan-unmapped-account"
 
-# --- Orphan queue count/threshold-alert (BRD Q-8 / A-JIRA-10) ---
-# STORY-117: Extracted to prevent drift between the sync Lambda (write-side,
+# --- Orphan queue count/threshold-alert ---
+# Extracted to prevent drift between the sync Lambda (write-side,
 # lambdas/sync/handler.py::_write_orphan_count) and the config API's
 # orphan-status endpoint (read-side, lambdas/api/orphan_handlers.py).
 # Previously the reader used a different pk ("ORPHAN_STATUS") and a
@@ -67,14 +67,14 @@ ORPHAN_STATUS_KEY = "ORPHAN_COUNT"
 ORPHAN_COUNT_FIELD = "count"
 
 # Orphan ticket count above which the "default project exceeds N tickets"
-# alert is raised (BRD A-JIRA-10 / Q-8).
+# alert is raised.
 ORPHAN_ALERT_THRESHOLD = 10
 
 # --- Campaign state vs. ticketing lock (CampaignsTable item) ---
-# STORY-118 (King Yip code review Finding 3): a single CampaignsTable item
+# NOTE (ACCEPT AS DEBT): a single CampaignsTable item
 # carries TWO independent status-like attributes that read as related but
-# are NOT. Dumbledore (Architect) reviewed this and ruled it ACCEPT AS DEBT:
-# renaming or merging either attribute would touch the STORY-114
+# are NOT. This was reviewed and accepted as debt:
+# renaming or merging either attribute would touch the
 # ticketing-lock compare-and-swap logic in
 # lambdas/api/dashboard_handlers.py::handle_create_tickets and requires a
 # CampaignsTable migration. Both are deferred to a future date — do NOT
@@ -93,7 +93,7 @@ ORPHAN_ALERT_THRESHOLD = 10
 #
 # `campaignStatus` (TICKETING_LOCK_FIELD) — the TICKETING LOCK.
 #   Values: TICKETING_IN_PROGRESS / TICKETED / TICKETING_FAILED. A
-#   compare-and-swap mutex (STORY-114) that prevents duplicate concurrent
+#   compare-and-swap mutex that prevents duplicate concurrent
 #   "Create Tickets" requests for the same campaign. It is UNRELATED to
 #   Health resource remediation state.
 #   Written & read exclusively by:

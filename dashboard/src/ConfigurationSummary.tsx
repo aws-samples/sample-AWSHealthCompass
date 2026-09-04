@@ -197,15 +197,15 @@ function normalizeResponse<T>(response: any): T {
 // --- Component ---
 
 export default function ConfigurationSummary({ config, onRunWizard, onConfigChanged }: Props) {
-  // STORY-139 (§5.1): drive column gating and label context off the resolved
+  // Drive column gating and label context off the resolved
   // platforms array (not the JIRA-only scalar). snowEnabled/jiraEnabled feed
   // the routing-table column gates; labelPlatform feeds the "Active Platform"
-  // display. JIRA-only reduces byte-identical to pre-epic (AC-139.9).
+  // display. JIRA-only reduces byte-identical to pre-epic.
   const { snowEnabled, jiraEnabled, labelPlatform } = resolvePlatformContext(config);
 
   // Platform-aware default visible columns: a SNOW-only summary defaults to the
   // ServiceNow group column instead of the JIRA project column so a fresh
-  // SNOW-only customer sees where to begin mapping (AC-139.6, Luna F-3).
+  // SNOW-only customer sees where to begin mapping.
   const defaultVisibleColumns = useMemo(
     () =>
       snowEnabled && !jiraEnabled
@@ -350,7 +350,7 @@ export default function ConfigurationSummary({ config, onRunWizard, onConfigChan
   const accountMappingCount = mappings.length;
 
   // Determine which routing-target columns to show. Driven off the resolved
-  // platforms array (STORY-139 §5.1) — the mappings.some(...) leg is kept as a
+  // platforms array — the mappings.some(...) leg is kept as a
   // harmless extra trigger so a stray SNOW mapping still surfaces the column.
   const showSnowColumn =
     snowEnabled ||

@@ -2,7 +2,7 @@
 
 TEST ONLY. Invoked via ``aws lambda invoke`` or SDK. Accepts ``count`` and
 optional ``scenario`` parameters. Delegates all event construction to
-``event_factory.py`` (STORY-033). Sends events directly to the SQS
+``event_factory.py``. Sends events directly to the SQS
 Ingestion Queue (bypasses EventBridge to avoid reserved source rejection).
 
 Environment variables:
@@ -42,7 +42,7 @@ def lambda_handler(event: dict, context) -> dict:
         "payload": event,
     }))
 
-    # --- Single event mode (STORY-078: Route Test / Full Pipeline) ---
+    # --- Single event mode ---
     single_event = event.get("singleEvent")
     if single_event:
         return _handle_single_event(single_event, context)
@@ -113,7 +113,7 @@ def lambda_handler(event: dict, context) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Single event mode (STORY-078)
+# Single event mode
 # ---------------------------------------------------------------------------
 
 def _handle_single_event(spec: dict, context) -> dict:

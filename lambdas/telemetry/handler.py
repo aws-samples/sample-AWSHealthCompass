@@ -2,17 +2,9 @@
 
 Collects aggregated counts only (no PII, no ARNs, no account IDs).
 Gated by customer consent (TELEMETRY.consent in ConfigTable).
-Delivery mechanism TBD (BRD Q-3) — stores payload in ConfigTable for now.
+Delivery mechanism TBD — stores payload in ConfigTable for now.
 
-Metrics collected:
-  T-B-1: Resource tag routing vs. account tag fallback ratio
-  T-B-2: Tag keys used for routing
-  T-B-3: ServiceNow vs. JIRA split (platform)
-  T-B-4: Dashboard active sessions and unique users per day
-  T-B-5: Most common dashboard filters used
-  T-B-6: Orphan queue volume
-  T-B-7: Time from ticket creation to first status change
-  T-B-8: Error log patterns (placeholder — CloudWatch Logs Insights deferred)
+Metrics collected:: Resource tag routing vs. account tag fallback ratio: Tag keys used for routing: ServiceNow vs. JIRA split (platform): Dashboard active sessions and unique users per day: Most common dashboard filters used: Orphan queue volume: Time from ticket creation to first status change: Error log patterns (placeholder — CloudWatch Logs Insights deferred)
 """
 import json
 import logging
@@ -37,43 +29,43 @@ def lambda_handler(event, context):
     """Daily telemetry aggregation. Exits immediately if consent not granted."""
     config_table = _dynamodb.Table(CONFIG_TABLE)
 
-    # Consent gate (T-IMP-3)
+    # Consent gate
     consent_item = config_table.get_item(Key={"pk": "TELEMETRY"}).get("Item", {})
     if not consent_item.get("consent"):
         logger.info("Telemetry consent not granted. Skipping.")
         return {"collected": False, "reason": "no_consent"}
 
-    # T-B-3: Active ITSM platform
+    # Active ITSM platform
     platform_item = config_table.get_item(Key={"pk": "ITSM_PLATFORM"}).get("Item", {})
     platform = platform_item.get("platform", "jira")
 
-    # T-B-2: Tag key used for routing
+    # Tag key used for routing
     strategy_item = config_table.get_item(Key={"pk": "ROUTING_STRATEGY"}).get("Item", {})
     tag_key = strategy_item.get("tag_key", None)
 
-    # T-B-1: Routing fallback ratio (scan ResourcesTable, capped at 10 pages)
+    # Routing fallback ratio (scan ResourcesTable, capped at 10 pages)
     routing_counts = _aggregate_routing_counts()
 
     total = sum(routing_counts.values())
     tag_routed = routing_counts["resourceTag"] + routing_counts["accountTag"]
 
-    # T-B-4: Unique users today (from SESSION# items)
+    # Unique users today (from SESSION# items)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     unique_users = _count_unique_sessions(config_table, today)
 
-    # T-B-5: Top dashboard filters (from TELE_EVENT# items)
+    # Top dashboard filters (from TELE_EVENT# items)
     top_filters = _aggregate_top_filters(config_table, today)
 
-    # T-B-6: Orphan queue volume (routedVia=default from T-B-1 scan)
+    # Orphan queue volume (routedVia=default from scan)
     orphan_volume = routing_counts.get("default", 0)
 
-    # T-B-7: Time from ticket creation to first status change
+    # Time from ticket creation to first status change
     median_time_to_first_change = _compute_median_time_to_first_change()
 
-    # T-B-8: Error log patterns (CloudWatch Logs Insights — deferred)
+    # Error log patterns (CloudWatch Logs Insights — deferred)
     top_errors = []
 
-    # Build payload (T-IMP-4: versioned schema)
+    # Build payload (versioned schema)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     payload = {
         "version": "2.1",
@@ -85,19 +77,19 @@ def lambda_handler(event, context):
         "tagRoutedRatio": round(tag_routed / total, 3) if total > 0 else 0,
         "accountFallbackRatio": round(routing_counts["account"] / total, 3) if total > 0 else 0,
         "defaultFallbackRatio": round(routing_counts["default"] / total, 3) if total > 0 else 0,
-        # T-B-4
+
         "uniqueUsersToday": unique_users,
-        # T-B-5
+
         "topFilters": top_filters,
-        # T-B-6
+
         "orphanVolume": orphan_volume,
-        # T-B-7
+
         "medianTimeToFirstChangeHours": median_time_to_first_change,
-        # T-B-8
+
         "topErrors": top_errors,
     }
 
-    # Store latest — delivery mechanism TBD (BRD Q-3)
+    # Store latest — delivery mechanism TBD
     config_table.put_item(Item={
         "pk": "TELEMETRY_LATEST",
         **{k: _to_dynamo_safe(v) for k, v in payload.items()},
@@ -130,7 +122,7 @@ def _aggregate_routing_counts() -> dict:
 
 
 def _count_unique_sessions(config_table, today: str) -> int:
-    """Count unique hashed user subs from SESSION# items for today (T-B-4)."""
+    """Count unique hashed user subs from SESSION# items for today."""
     subs = set()
     scan_kwargs = {
         "FilterExpression": Attr("pk").begins_with(f"SESSION#{today}"),
@@ -149,7 +141,7 @@ def _count_unique_sessions(config_table, today: str) -> int:
 
 
 def _aggregate_top_filters(config_table, today: str) -> list:
-    """Aggregate top 10 UI events from TELE_EVENT# items for today (T-B-5)."""
+    """Aggregate top 10 UI events from TELE_EVENT# items for today."""
     events = []
     scan_kwargs = {
         "FilterExpression": Attr("pk").begins_with(f"TELE_EVENT#{today}"),
@@ -174,7 +166,7 @@ def _aggregate_top_filters(config_table, today: str) -> list:
 
 
 def _compute_median_time_to_first_change():
-    """Compute median hours from ticket creation to first status change (T-B-7).
+    """Compute median hours from ticket creation to first status change.
 
     Scans ResourcesTable for items with both ticketCreatedAt and firstStatusChangeAt.
     Returns None if insufficient data.

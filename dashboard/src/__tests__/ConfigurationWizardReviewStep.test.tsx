@@ -1,13 +1,12 @@
 /**
- * Unit tests for STORY-119: Remove the dead telemetry consent checkbox from
+ * Unit tests for the removal of the dead telemetry consent checkbox from
  * the onboarding wizard's Review & Activate step.
  *
- * Context (King Yip Code Review Finding 10 / STORY-119, see
- * .kiro/tracking/story119_harry_implementation.md): the Review step rendered
+ * Context: the Review step rendered
  * a "Telemetry" `<Container>` with a `<Checkbox>` bound to a `telemetryConsent`
  * local `useState`. That state was never passed to `saveAll()` and never sent
  * in any `apiFetch` call or persisted anywhere — checking/unchecking it did
- * nothing. Harry removed both the dead state declaration and the JSX block
+ * nothing. Both the dead state declaration and the JSX block were removed
  * from `renderReviewStep()` in `ConfigurationWizard.tsx`. This file locks in
  * that removal (dead-state regression coverage) and verifies the rest of the
  * Review step — the "Configuration Summary" container and the
@@ -16,8 +15,8 @@
  * NOTE ON SCOPE: `ConfigurationSummary.tsx` (the *separate*, post-activation
  * summary view) still has an unrelated read-only display of
  * `(config as any).telemetryConsent` in its "System Information" section.
- * That component is NOT touched by STORY-119 (per Harry's implementation
- * notes) and is therefore intentionally NOT covered by this file, which is
+ * That component is NOT touched by this change and is therefore intentionally
+ * NOT covered by this file, which is
  * scoped strictly to the wizard (`ConfigurationWizard.tsx`).
  *
  * Style mirrors ConfigurationWizardDispatch.test.tsx: mock ../api, ../config,
@@ -116,7 +115,7 @@ function wasCalled(path: string): boolean {
 // 1. Telemetry checkbox / copy no longer render on the Review step
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationWizard Review step — telemetry checkbox removed (STORY-119)', () => {
+describe('ConfigurationWizard Review step — telemetry checkbox removed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -164,7 +163,7 @@ describe('ConfigurationWizard Review step — telemetry checkbox removed (STORY-
 // 2. Rest of the Review step still renders and functions correctly
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationWizard Review step — Configuration Summary unaffected (STORY-119)', () => {
+describe('ConfigurationWizard Review step — Configuration Summary unaffected', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();

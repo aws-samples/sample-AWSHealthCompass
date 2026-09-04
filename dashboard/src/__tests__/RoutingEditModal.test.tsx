@@ -1,5 +1,5 @@
 /**
- * Unit tests for STORY-098: Routing Edit Modal
+ * Unit tests for the Routing Edit Modal
  *
  * Tests RoutingEditModal component: default routing, editable account mappings,
  * bulk import (CSV/JSON), Load from Organizations, tag routing toggle/key,
@@ -828,10 +828,10 @@ describe('RoutingEditModal — Cancel & Dirty Detection', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: STORY-101 — ServiceNow Column in Bulk Import Preview
+// Tests: ServiceNow Column in Bulk Import Preview
 // ---------------------------------------------------------------------------
 
-describe('RoutingEditModal — STORY-101: ServiceNow Bulk Import Column', () => {
+describe('RoutingEditModal — ServiceNow Bulk Import Column', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

@@ -1,5 +1,5 @@
 /**
- * STORY-113: Fix Edit Routing Rules Modal Data Loss
+ * Fix Edit Routing Rules Modal Data Loss
  *
  * Tests verifying the fixes for:
  * - RoutingEditModal reads `accounts` key (not `mappings`) from API response
@@ -180,7 +180,7 @@ async function renderSummary(config: OnboardingConfig = makeConfig()) {
 // SECTION 1: RoutingEditModal — reads `accounts` key correctly
 // ===========================================================================
 
-describe('STORY-113: RoutingEditModal reads accounts key from API', () => {
+describe('RoutingEditModal reads accounts key from API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupMocks();
@@ -243,7 +243,7 @@ describe('STORY-113: RoutingEditModal reads accounts key from API', () => {
 // SECTION 2: RoutingEditModal — tag routing from nested summary path
 // ===========================================================================
 
-describe('STORY-113: RoutingEditModal reads tag routing from summary nested path', () => {
+describe('RoutingEditModal reads tag routing from summary nested path', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -296,7 +296,7 @@ describe('STORY-113: RoutingEditModal reads tag routing from summary nested path
 // SECTION 3: RoutingEditModal — save button disabled on loadError / loading
 // ===========================================================================
 
-describe('STORY-113: RoutingEditModal save button disabled on error/loading', () => {
+describe('RoutingEditModal save button disabled on error/loading', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -368,7 +368,7 @@ describe('STORY-113: RoutingEditModal save button disabled on error/loading', ()
 // SECTION 4: ConfigurationSummary — accounts key and tag routing path
 // ===========================================================================
 
-describe('STORY-113: ConfigurationSummary reads accounts key from routing API', () => {
+describe('ConfigurationSummary reads accounts key from routing API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -428,7 +428,7 @@ describe('STORY-113: ConfigurationSummary reads accounts key from routing API', 
   });
 });
 
-describe('STORY-113: ConfigurationSummary tag routing from nested path', () => {
+describe('ConfigurationSummary tag routing from nested path', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

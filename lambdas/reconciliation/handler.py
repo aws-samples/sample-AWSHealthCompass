@@ -102,7 +102,7 @@ _config_table = _dynamodb.Table(_CONFIG_TABLE)
 _sns_client = boto3.client("sns", region_name=_AWS_REGION)
 _s3_client = boto3.client("s3", region_name=_AWS_REGION)
 
-# Health API client — us-east-1 only (BRD E-15)
+# Health API client — us-east-1 only
 _health_client = boto3.client(
     "health",
     region_name="us-east-1",
@@ -156,7 +156,7 @@ def _validate_service(service: Any) -> Optional[str]:
 
 
 # ===================================================================
-# Concurrency Guard (Design §6)
+# Concurrency Guard (Design)
 # ===================================================================
 
 
@@ -164,7 +164,7 @@ def _acquire_guard(now_iso: str) -> bool:
     """Acquire reconciliation guard via DynamoDB conditional write.
 
     Returns True if acquired, False if another run is active.
-    Uses 15-minute stale threshold for crash recovery (Design §6.3).
+    Uses 15-minute stale threshold for crash recovery (Design).
     """
     stale_threshold = (
         datetime.now(timezone.utc) - timedelta(minutes=_STALE_GUARD_MINUTES)
@@ -234,7 +234,7 @@ def _write_state(
 
 
 # ===================================================================
-# Health API Client (Design §4)
+# Health API Client (Design)
 # ===================================================================
 
 
@@ -325,7 +325,7 @@ def _get_event_description(event_arn: str, account_id: str) -> str:
 
 
 # ===================================================================
-# Normalization Layer (Design §5)
+# Normalization Layer (Design)
 # ===================================================================
 
 
@@ -346,12 +346,12 @@ def _normalize_health_api_event(
     supported" by AWS today, so it is empty for now; the read is
     forward-built and auto-populates when AWS ships inline entity tags.
     Empty resource tags degrade to account-ID / default routing via the
-    unchanged routing engine's failover chain (B-ROUTE-2).
+    unchanged routing engine's failover chain.
 
     Account tags stay empty: the Health Organizational View API exposes
-    no account-tags field of any kind (see
-    .kiro/refs/aws/health-org-api-inline-tags.md). This is a documented
-    limitation, not an RT-06a target; account-ID / default routing covers
+    no account-tags field of any kind (documented AWS Health behavior).
+    This is a documented
+    limitation; account-ID / default routing covers
     those events.
     """
     event_arn = _validate_event_arn(event.get("arn"))
@@ -417,9 +417,9 @@ def _normalize_health_api_event(
         ) or "",
         "statusCode": event.get("statusCode", ""),
         "affectedAccount": affected_account,
-        # Org View API exposes no account-tags field (see
-        # .kiro/refs/aws/health-org-api-inline-tags.md); documented
-        # limitation, failover covers it. Not an RT-06a target.
+        # Org View API exposes no account-tags field (documented
+        # AWS Health behavior); documented
+        # limitation, failover covers it.
         "accountTags": {},
         "eventDescription": [{"latestDescription": description}],
         "affectedEntities": normalized_entities,
@@ -589,9 +589,9 @@ def _build_standardized_event(
             "action": "RECONCILE",
         },
         "resources": resources,
-        # Org View API exposes no account-tags field (see
-        # .kiro/refs/aws/health-org-api-inline-tags.md); documented
-        # limitation, failover covers it. Not an RT-06a target.
+        # Org View API exposes no account-tags field (documented
+        # AWS Health behavior); documented
+        # limitation, failover covers it.
         "accountTags": {},
         "routing": routing,
         "dispatch": dispatch,
@@ -726,7 +726,7 @@ def _process_single_event(
     campaign_id = derive_campaign_id(detail)
     campaign_type = determine_campaign_type(normalized_entities)
 
-    # Check if campaign exists (Design §7.3)
+    # Check if campaign exists (Design)
     existing = _get_existing_campaign(campaign_id)
 
     # Create or merge campaign
@@ -757,14 +757,14 @@ def _process_single_event(
     )
 
     # SNS publish only for NEW campaigns that pass dispatch + routing
-    # (Design §8.1 — existing campaigns already dispatched)
+    # (Design — existing campaigns already dispatched)
     if is_new:
         dispatch_result = _evaluate_dispatch_for_event(detail, config)
         if dispatch_result.get("dispatched") is True:
             routing_result = _resolve_routing_for_event(detail, config)
 
-            # --- RT-07 (STORY-126): persist routing attribution ---
-            # Mirror the processor's step (k.1) write so B-ROUTE-3 coverage
+            # --- persist routing attribution ---
+            # Mirror the processor's step (k.1) write so routing coverage
             # counts reconciliation-ingested resources accurately. Decoupled
             # from the SNS-publish gate (resolvedProject, a JIRA-only signal)
             # so attribution records the TRUE outcome even for
@@ -896,7 +896,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
     }
     error_details: list = []
 
-    # Step 2: Acquire concurrency guard (Design §6)
+    # Step 2: Acquire concurrency guard (Design)
     if not _acquire_guard(started_at):
         logger.warning(
             "Reconciliation skipped — another run is active"
@@ -930,7 +930,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
         config = _load_config()
         now = _now_iso()
 
-        # Step 5: Process each event independently (Design §9.1)
+        # Step 5: Process each event independently (Design)
         for health_event in health_events:
             event_arn = _sanitize_log(health_event.get("arn", "UNKNOWN"))
             try:

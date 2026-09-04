@@ -1,8 +1,8 @@
 """Campaign grouping logic for resource-to-ticket distribution.
 
 Pure-Python module that groups resources by configurable strategies
-(per-account, per-tag-value, single) to support Beta campaign grouping
-(BRD B-CAMP-1). Each group becomes a single ITSM ticket, reducing
+(per-account, per-tag-value, single) to support campaign grouping.
+Each group becomes a single ITSM ticket, reducing
 ticket noise for multi-resource campaigns.
 
 Consumers: JIRA Integration Lambda, ServiceNow Integration Lambda.
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 __all__ = ["group_resources"]
 
-_MAX_GROUPS = 100  # SEC-073-02: prevent unbounded group explosion
+_MAX_GROUPS = 100  # prevent unbounded group explosion
 
 _VALID_STRATEGIES = ("per-account", "per-tag-value", "single")
 

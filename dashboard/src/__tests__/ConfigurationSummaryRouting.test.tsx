@@ -1,5 +1,5 @@
 /**
- * Unit and integration tests for STORY-096:
+ * Unit and integration tests for:
  * Routing Table Search, Pagination, and Filtering.
  *
  * Tests the `matchesRoutingFilter` pure helper (exported) and the routing

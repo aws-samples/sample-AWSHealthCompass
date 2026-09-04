@@ -92,7 +92,7 @@ class JiraIntegrationStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # JIRA Integration Lambda (stub — business logic in STORY-012+)
+        # JIRA Integration Lambda (stub — business logic added later)
         # Reserved concurrency = 2 for JIRA API rate limiting
         # ---------------------------------------------------------------
         self.jira_lambda = lambda_.Function(
@@ -147,7 +147,7 @@ class JiraIntegrationStack(cdk.Stack):
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
             alarm_description="Messages in JIRA integration DLQ — investigate failed ticket operations",
         )
-        # TR-5 (STORY-121): notification action appended, existing alarm
+        # notification action appended, existing alarm
         # block above is unmodified. ops_alerts_topic is received from
         # CoreStack (same-region pattern already used for integration_topic).
         jira_dlq_alarm.add_alarm_action(cw_actions.SnsAction(ops_alerts_topic))

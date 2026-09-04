@@ -1,5 +1,5 @@
 /**
- * Unit tests for STORY-095: Configuration Summary Landing Page
+ * Unit tests for the Configuration Summary Landing Page
  *
  * Tests the orchestrator (Configuration.tsx) and summary page (ConfigurationSummary.tsx).
  * The orchestrator decides whether to show the wizard or the summary based on config state.
@@ -487,7 +487,7 @@ describe('ConfigurationSummary', () => {
   });
 
   describe('Edit Buttons', () => {
-    it('edit-connections button is present and enabled (STORY-097)', async () => {
+    it('edit-connections button is present and enabled', async () => {
       await renderSummary(makeConfigJiraConnected());
 
       await waitFor(() => {
@@ -497,7 +497,7 @@ describe('ConfigurationSummary', () => {
       });
     });
 
-    it('edit-routing button is present and ENABLED (STORY-098)', async () => {
+    it('edit-routing button is present and ENABLED', async () => {
       await renderSummary(makeConfigJiraConnected());
 
       await waitFor(() => {
@@ -507,7 +507,7 @@ describe('ConfigurationSummary', () => {
       });
     });
 
-    it('clicking edit-routing opens RoutingEditModal (STORY-098)', async () => {
+    it('clicking edit-routing opens RoutingEditModal', async () => {
       const user = userEvent.setup();
       await renderSummary(makeConfigJiraConnected());
 
@@ -522,7 +522,7 @@ describe('ConfigurationSummary', () => {
       });
     });
 
-    it('edit-dispatch button is present and ENABLED (STORY-099)', async () => {
+    it('edit-dispatch button is present and ENABLED', async () => {
       await renderSummary(makeConfigJiraConnected());
 
       await waitFor(() => {

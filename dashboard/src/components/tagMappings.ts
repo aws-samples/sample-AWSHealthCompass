@@ -1,14 +1,14 @@
 /**
- * STORY-125 (RT-03): shared logic for the tag-value → routing-target mapping
+ * Shared logic for the tag-value → routing-target mapping
  * editor. Kept separate from the React component so the wizard and the
  * RoutingEditModal share ONE implementation of validation, reconciliation, and
  * persistence (no forked save path).
  *
- * Security note: client-side validation here is ADVISORY only (Snape SR-125-9).
+ * Security note: client-side validation here is ADVISORY only.
  * The authoritative length/charset guard lives server-side in
  * `lambdas/api/tag_routing_handlers.py`; a hostile caller can bypass this UI
  * entirely. These mirrors give fast inline feedback and MUST stay in sync with
- * the backend constants (SR-125-15 / interface-review NOTE-A / NOTE-B).
+ * the backend constants.
  */
 import { apiFetch } from '../api';
 import { parseApiError } from '../errors';
@@ -19,7 +19,7 @@ export interface TagMappingRow {
   jiraProject: string;
   jiraIssueType: string;
   /**
-   * STORY-140: ServiceNow target fields — used only when snowEnabled. Default
+   * ServiceNow target fields — used only when snowEnabled. Default
    * snowRecordType is 'change_request'. Optional snowAssignmentGroupName flows
    * through additively if present.
    */
@@ -34,14 +34,14 @@ export interface TagMappingRow {
 export interface TagMappingValidationError {
   tagValue: string;
   jiraProject?: string;
-  /** STORY-140: structured field association for SNOW-branch per-row errors. */
+  /** Structured field association for SNOW-branch per-row errors. */
   field?: string;
-  /** STORY-140: structured error code (e.g. CFG_SNOW_GROUP_NOT_FOUND). */
+  /** Structured error code (e.g. CFG_SNOW_GROUP_NOT_FOUND). */
   code?: string;
   reason: string;
 }
 
-/** Honest outcome of a tag-mapping save (RT-14): upsert triad + delete count + transport error. */
+/** Honest outcome of a tag-mapping save: upsert triad + delete count + transport error. */
 export interface TagMappingsSaveResult {
   created: number;
   updated: number;
@@ -51,17 +51,17 @@ export interface TagMappingsSaveResult {
   transportError?: string;
 }
 
-// SR-125-15 / NOTE-A: MUST match the backend `_MAX_TAG_VALUE_LEN` (256) exactly.
+// MUST match the backend `_MAX_TAG_VALUE_LEN` (256) exactly.
 export const MAX_TAG_VALUE_LEN = 256;
-// SR-125-2 / NOTE-B: mirror the backend control-char predicate [\x00-\x1F\x7F-\x9F].
+// Mirror the backend control-char predicate [\x00-\x1F\x7F-\x9F].
 const CONTROL_CHAR_RE = /[\u0000-\u001f\u007f-\u009f]/;
-const MAX_ISSUE_TYPE_LEN = 128; // mirrors backend _MAX_ISSUE_TYPE_LEN (SR-125-14)
-// STORY-140: advisory client mirror of the backend _SNOW_GROUP_ID_RE
+const MAX_ISSUE_TYPE_LEN = 128; // mirrors backend _MAX_ISSUE_TYPE_LEN
+// Advisory client mirror of the backend _SNOW_GROUP_ID_RE
 // (^[a-f0-9]{32}$). Fast inline feedback ONLY — backend is authoritative.
 const SNOW_GROUP_ID_RE = /^[a-f0-9]{32}$/;
 
 /**
- * STORY-140: advisory client-side validation of a ServiceNow assignment-group
+ * Advisory client-side validation of a ServiceNow assignment-group
  * sys_id. Returns a user-facing message, or null when acceptable. Backend
  * (`validate_snow_routing_fields` + existence check) is authoritative.
  */
@@ -84,7 +84,7 @@ export function validateTagValueClient(value: string): string | null {
   return null;
 }
 
-/** Advisory client-side validation of the issue type (mirrors SR-125-14, LOW). */
+/** Advisory client-side validation of the issue type (LOW). */
 export function validateIssueTypeClient(value: string): string | null {
   const v = value.trim();
   if (CONTROL_CHAR_RE.test(v)) return "Issue type can't contain line breaks or control characters.";
@@ -102,9 +102,9 @@ export function getUpsertRows(rows: TagMappingRow[]): TagMappingRow[] {
  * Duplicate tag values are prevented at add-time, so this checks empty/invalid
  * target and any tag value that slipped through (defense-in-depth).
  *
- * STORY-140: platform-aware. Under SNOW-only (`snowEnabled && !jiraEnabled`)
+ * Platform-aware. Under SNOW-only (`snowEnabled && !jiraEnabled`)
  * the row gates on `snowAssignmentGroupId` instead of `jiraProject`. Default
- * (jiraEnabled) preserves the pre-epic JIRA gate byte-for-byte (AC-140.6).
+ * (jiraEnabled) preserves the pre-epic JIRA gate byte-for-byte.
  */
 export function hasTagMappingClientErrors(
   rows: TagMappingRow[],
@@ -124,16 +124,16 @@ export function hasTagMappingClientErrors(
 
 /**
  * Persist tag mappings against the existing endpoints. Runs DELETEs FIRST
- * (AD-3: eliminates the rename old+new overlap window), then one upsert POST.
+ * (eliminates the rename old+new overlap window), then one upsert POST.
  * A 404 on DELETE is treated as idempotent success (already absent). A
  * transport failure short-circuits and is returned in `transportError` so the
  * caller surfaces it and does not claim the mappings were persisted.
  *
- * STORY-140: the per-row upsert body is platform-aware. When `snowEnabled`,
+ * The per-row upsert body is platform-aware. When `snowEnabled`,
  * each row carries `snowAssignmentGroupId`/`snowRecordType` (+ name if present).
  * When `!jiraEnabled` (SNOW-only), the `jiraProject`/`jiraIssueType` fields are
  * omitted. Default (`snowEnabled=false, jiraEnabled=true`) is byte-identical to
- * the pre-epic JIRA-only body (AC-140.6). The DELETE-first flow is unchanged —
+ * the pre-epic JIRA-only body. The DELETE-first flow is unchanged —
  * it is target-agnostic (keyed on the `TAG_ROUTING#{value}` pk).
  */
 export async function persistTagMappings(

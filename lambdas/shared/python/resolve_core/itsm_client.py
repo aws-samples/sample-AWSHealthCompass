@@ -37,7 +37,7 @@ class ITSMAPIError(Exception):
 
     Security note: `error_message` may contain platform-specific URLs,
     endpoint paths, or field names from JIRA/ServiceNow error responses.
-    This is acceptable for CloudWatch structured logging (A-JIRA-7) but
+    This is acceptable for CloudWatch structured logging but
     MUST be sanitized before surfacing via API Gateway responses or
     telemetry payloads to avoid leaking customer instance topology.
     """
@@ -432,7 +432,7 @@ class ITSMClient(ABC):
 # Usage: client_class = PLATFORMS_REGISTRY[config.platform_id]
 #        client = client_class(credentials)
 PLATFORMS_REGISTRY: Dict[str, Optional[type]] = {
-    "jira": None,  # Will be set to JiraClient after refactor (STORY-052 follow-up)
+    "jira": None,  # Will be set to JiraClient after refactor
 }
 
 

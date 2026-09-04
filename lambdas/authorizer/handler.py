@@ -8,7 +8,7 @@ Accepts EITHER:
 Returns IAM policy document with context: userId, groups, authMethod.
 Fail-closed: any validation failure = Deny.
 
-Security: SEC-068-01 through SEC-068-07.
+Security controls applied.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ API_KEY_VALUE = os.environ.get("API_KEY_VALUE", "")
 ISSUER = f"https://cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}"
 JWKS_URL = f"{ISSUER}/.well-known/jwks.json"
 
-# Module-level JWKS cache — persists across warm Lambda invocations (SEC-068-02)
+# Module-level JWKS cache — persists across warm Lambda invocations
 _jwks_cache: dict | None = None
 
 
@@ -46,7 +46,7 @@ def lambda_handler(event, context):
     has_bearer = auth_header.lower().startswith("bearer ") if auth_header else False
     has_api_key = bool(api_key)
 
-    # SEC-068-04: Reject ambiguous authentication
+    # Reject ambiguous authentication
     if has_bearer and has_api_key:
         logger.warning("Ambiguous auth: both Bearer and x-api-key present")
         return _deny(method_arn)
@@ -66,7 +66,7 @@ def lambda_handler(event, context):
             return _deny(method_arn)
 
     except Exception as e:
-        # SEC-068-03: Fail closed on any error
+        # Fail closed on any error
         logger.error("Auth validation failed: %s", str(e))
         return _deny(method_arn)
 
@@ -76,7 +76,7 @@ def lambda_handler(event, context):
 
 
 # ===================================================================
-# JWT Validation (SEC-068-01)
+# JWT Validation
 # ===================================================================
 
 def _validate_jwt(token: str) -> dict:
@@ -190,7 +190,7 @@ def _verify_signature(token: str, jwk: dict) -> None:
 
 
 # ===================================================================
-# JWKS Key Management (SEC-068-02)
+# JWKS Key Management
 # ===================================================================
 
 def _get_jwk(kid: str) -> dict | None:
@@ -227,7 +227,7 @@ def _fetch_jwks() -> dict:
 
 
 # ===================================================================
-# API Key Validation (SEC-068-05)
+# API Key Validation
 # ===================================================================
 
 def _validate_api_key(api_key: str) -> bool:

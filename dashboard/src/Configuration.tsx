@@ -37,12 +37,12 @@ export default function Configuration({ config, onSave }: Props) {
   const hasJiraConnection = config.jira?.validated === true;
   const hasSnowConnection = config.servicenow?.validated === true;
   const hasAnyConnection = hasJiraConnection || hasSnowConnection;
-  // STORY-139 (§5.2, F-7): platform-aware routing signal. Keying solely off the
+  // Platform-aware routing signal. Keying solely off the
   // JIRA-named `routing.defaultProject` misclassified a returning SNOW-only
   // customer (who has SNOW routing but no JIRA default project) as a first-time
   // user. `hasAnyConnection` already covers the common returning-SNOW case;
   // this makes the routing signal itself platform-neutral. JIRA-only is
-  // unchanged (AC-139.9): hasSnowRouting is false, hasJiraRouting reduces to the
+  // unchanged: hasSnowRouting is false, hasJiraRouting reduces to the
   // prior check.
   const hasJiraRouting = !!config.routing?.defaultProject;
   const hasSnowRouting =

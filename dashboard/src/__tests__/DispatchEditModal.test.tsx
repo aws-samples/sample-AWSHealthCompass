@@ -1,5 +1,5 @@
 /**
- * Unit tests for STORY-099: Dispatch Window Edit Modal
+ * Unit tests for the Dispatch Window Edit Modal
  *
  * Tests DispatchEditModal component: mode selection, actionability filter,
  * custom rules editor (add/remove/toggle), warning for empty rules,
@@ -662,7 +662,7 @@ describe('DispatchEditModal — Mode Switching', () => {
 // Tests: Integration with ConfigurationSummary (edit-dispatch button)
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationSummary — edit-dispatch button (STORY-099)', () => {
+describe('ConfigurationSummary — edit-dispatch button', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiFetch.mockImplementation(async (path: string) => {

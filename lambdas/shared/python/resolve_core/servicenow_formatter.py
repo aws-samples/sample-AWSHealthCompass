@@ -9,8 +9,6 @@ configurations regardless of field type (String vs HTML), plugin state,
 or version. Section headers use '--- Title ---' pattern, resource tables
 use pipe-delimited lines, and metadata uses 'Label: value' format.
 
-STORY-061: Full implementation with change request fields and truncation.
-STORY-104: Converted from HTML to plain text for universal ServiceNow compatibility.
 FINDING-08: _sanitize() strips control characters from all interpolated fields.
 
 Consumers: servicenow_client.py.
@@ -24,7 +22,7 @@ from typing import Any, Dict, List
 from resolve_core.itsm_client import ContentFormatter
 from resolve_core.ticket_content import TicketContent
 
-# ServiceNow field size limits (per Snape security review)
+# ServiceNow field size limits (per security review)
 _DESCRIPTION_LIMIT = 4000
 _JUSTIFICATION_LIMIT = 500
 _IMPLEMENTATION_PLAN_LIMIT = 2000
@@ -105,7 +103,7 @@ class ServiceNowFormatter(ContentFormatter):
                 f"— see attached CSV file (affected-resources.csv).\n"
             )
         elif content.resources_by_account:
-            # STORY-085: Multi-account grouped ticket — render per-account
+            # Multi-account grouped ticket — render per-account
             for acct_id, acct_name, acct_resources in content.resources_by_account:
                 if acct_name and acct_name != acct_id:
                     display = f"{_sanitize(acct_name)} ({_sanitize(acct_id)})"

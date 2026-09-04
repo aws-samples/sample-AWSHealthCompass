@@ -36,7 +36,7 @@ _MAX_EVENT_ARN_LEN = 1024
 _MAX_LOG_VALUE_LEN = 256
 
 # SECURITY: Fields that MUST use if_not_exists on merge to prevent
-# data corruption and duplicate JIRA ticket creation (SR-09a).
+# data corruption and duplicate JIRA ticket creation.
 _IMMUTABLE_FIELDS = frozenset({
     "status", "campaignType", "service", "eventTypeCode",
     "eventTypeCategory", "eventArn", "affectedAccount",
@@ -44,7 +44,7 @@ _IMMUTABLE_FIELDS = frozenset({
 })
 
 # SECURITY: Fields that MUST NOT appear in merge expressions.
-# These are owned by JIRA Lambda and Sync Lambda (SR-09b).
+# These are owned by JIRA Lambda and Sync Lambda.
 _TICKET_FIELDS = frozenset({
     "ticketsCreated", "ticketsClosed", "ticketsInProgress",
     "completionPct", "routing",
@@ -53,11 +53,11 @@ _TICKET_FIELDS = frozenset({
 
 # Campaign statuses.
 #
-# NOTE (STORY-118 / King Yip Finding 3, ACCEPT AS DEBT): this module owns the
+# NOTE (ACCEPT AS DEBT): this module owns the
 # `status` attribute on the CampaignsTable item — the CAMPAIGN STATE MACHINE
 # below (ACTIVE/COMPLETED/PARTIAL/FILTERED). A DIFFERENT attribute,
 # `campaignStatus`, lives on the SAME item and is owned exclusively by the
-# STORY-114 ticketing lock in lambdas/api/dashboard_handlers.py
+# ticketing lock in lambdas/api/dashboard_handlers.py
 # (handle_create_tickets). The two names look related but track unrelated
 # concerns — this module never reads or writes `campaignStatus`. See
 # resolve_core.constants.CAMPAIGN_STATE_FIELD / TICKETING_LOCK_FIELD for the
@@ -66,7 +66,7 @@ _TICKET_FIELDS = frozenset({
 VALID_CAMPAIGN_STATUSES = frozenset({"ACTIVE", "COMPLETED", "PARTIAL", "FILTERED"})
 
 # Statuses managed by dispatch/pagination logic — recalculate_completion
-# must never overwrite these (design §7.3).
+# must never overwrite these.
 _EXTERNALLY_MANAGED_STATUSES = frozenset({"FILTERED", "PARTIAL"})
 
 # Valid status transitions for update_campaign_status.
@@ -118,7 +118,7 @@ def derive_campaign_id(detail: Any) -> str:
 
     PLEs (event type codes ending with ``_PLANNED_LIFECYCLE_EVENT``)
     use ``service:eventTypeCode`` so that the same deprecation across
-    regions merges into one campaign (BRD Q-2, E-10). All other events
+    regions merges into one campaign. All other events
     use ``eventArn`` for strict per-event deduplication.
 
     Args:
@@ -138,10 +138,10 @@ def derive_campaign_id(detail: Any) -> str:
         raise ValueError("Health event missing eventArn — malformed event")
 
     event_arn = event_arn.strip()
-    if len(event_arn) > _MAX_EVENT_ARN_LEN:  # SR-02a
+    if len(event_arn) > _MAX_EVENT_ARN_LEN:
         event_arn = event_arn[:_MAX_EVENT_ARN_LEN]
 
-    if not event_arn.startswith("arn:aws:health:"):  # SR-02b
+    if not event_arn.startswith("arn:aws:health:"):
         logger.warning(
             "Non-standard eventArn prefix — event_arn=%s",
             _sanitize_log(event_arn),
@@ -237,7 +237,7 @@ def create_or_update_campaign(
             )
         except ClientError as exc:
             if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
-                # SR-08a/b: log campaignId and operation only, never Item content
+                #/b: log campaignId and operation only, never Item content
                 logger.error(
                     "Campaign write failed — error_code=DYNAMO_WRITE_FAILED "
                     "campaign_id=%s operation=put_item exception_type=%s",
@@ -250,7 +250,7 @@ def create_or_update_campaign(
     # Merge path: existing campaign or page > 1
     # SECURITY: Two-phase description/deadline change detection.
     # Race window between GetItem and UpdateItem is acceptable for
-    # Alpha single-level history (SR-07a, FINDING-IMPL-03).
+    # Alpha single-level history (FINDING-IMPL-03).
     desc_changed, deadline_changed = _detect_changes(
         table, campaign_id, detail,
     )
@@ -268,7 +268,7 @@ def create_or_update_campaign(
             ExpressionAttributeValues=values,
         )
     except ClientError as exc:
-        # SR-08a/b: log campaignId and operation only
+        #/b: log campaignId and operation only
         logger.error(
             "Campaign write failed — error_code=DYNAMO_WRITE_FAILED "
             "campaign_id=%s operation=update_item exception_type=%s",
@@ -303,7 +303,7 @@ def recalculate_completion(campaign: dict) -> CompletionResult:
     Pure function — no side effects, no DynamoDB calls. Callers must
     NOT invoke this when ``campaign["status"]`` is ``FILTERED`` or
     ``PARTIAL``; those statuses are managed by dispatch and pagination
-    logic respectively (design §7.3).
+    logic respectively.
 
     Args:
         campaign: Dict with keys ``campaignType``, ``statusCode``,
@@ -318,7 +318,7 @@ def recalculate_completion(campaign: dict) -> CompletionResult:
     Raises:
         ValueError: If required keys are missing or have invalid types.
     """
-    # --- Input validation (SEC-01 / SR-01a) ---
+    # --- Input validation ---
     campaign_type = campaign.get("campaignType", "")
     if campaign_type not in ("resource-level", "account-level"):
         raise ValueError(
@@ -346,7 +346,7 @@ def recalculate_completion(campaign: dict) -> CompletionResult:
         if total == 0:
             return CompletionResult(completion_pct=None, status=None)
 
-        # Clamp resolved to total (SR-01b)
+        # Clamp resolved to total
         resolved = min(resolved, total)
         pct = round((resolved / total) * 100, 1)
 
@@ -363,7 +363,7 @@ def recalculate_completion(campaign: dict) -> CompletionResult:
     if tickets_created == 0:
         return CompletionResult(completion_pct=None, status=None)
 
-    # Clamp closed to created (SR-01b)
+    # Clamp closed to created
     tickets_closed = min(tickets_closed, tickets_created)
     pct = round((tickets_closed / tickets_created) * 100, 1)
 
@@ -467,7 +467,7 @@ def update_campaign_status(
 
 
 def _safe_non_negative_int(val: Any) -> int:
-    """Coerce a value to a non-negative integer (SEC-01 / SR-01a).
+    """Coerce a value to a non-negative integer.
 
     Returns 0 for None, negative, or non-numeric values.
     """
@@ -549,7 +549,7 @@ def _detect_changes(
             ConsistentRead=False,
         )
     except ClientError as exc:
-        # SR-08a/b: log campaignId and operation only
+        #/b: log campaignId and operation only
         logger.error(
             "Campaign read failed — error_code=DYNAMO_WRITE_FAILED "
             "campaign_id=%s operation=get_item exception_type=%s",
@@ -655,7 +655,7 @@ def _build_merge_expression(
             values[":startTime"] = new_start
             set_clauses.append("#startTime = if_not_exists(#startTime, :startTime)")
 
-    # --- SECURITY: if_not_exists guards on immutable fields (SR-09a) ---
+    # --- SECURITY: if_not_exists guards on immutable fields ---
     # These fields are set only on first write. Subsequent merges preserve
     # the original values. This prevents re-dispatch and counter corruption.
     _guard_fields = {
@@ -673,7 +673,7 @@ def _build_merge_expression(
     }
 
     if mode == "reconciliation":
-        # SR-10a/b: Reconciliation still guards a subset of immutable fields.
+        #/b: Reconciliation still guards a subset of immutable fields.
         # It MAY overwrite affectedAccount, actionability, actionabilityInferred.
         _reconcile_guarded = {
             "createdAt", "dispatched", "eventArn", "service",
@@ -722,7 +722,7 @@ def _build_merge_expression(
 
     expr = " ".join(parts)
 
-    # SECURITY: Verify no ticket-owned fields leaked into expression (SR-09b).
+    # SECURITY: Verify no ticket-owned fields leaked into expression.
     # Explicit check — not assert — so it survives Python -O (FINDING-IMPL-015-03).
     for forbidden in _TICKET_FIELDS:
         if forbidden in expr:

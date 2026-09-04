@@ -1,5 +1,5 @@
 /**
- * Shared dispatch-window wire contract (STORY-115).
+ * Shared dispatch-window wire contract.
  *
  * This is the ONLY definition of the `POST /config/dispatch` request shape.
  * Both `ConfigurationWizard.tsx` and `modals/DispatchEditModal.tsx` import
@@ -40,7 +40,7 @@ export interface DispatchConfigRequest {
  * - `rules` is omitted entirely unless `mode === 'custom'`.
  * - Each rule is copied field-by-field to the four canonical keys, in order.
  *   This is deliberate (NOT a spread) to prevent mass-assignment of any extra
- *   in-memory properties into the request body (security invariant per Snape).
+ *   in-memory properties into the request body (security invariant).
  * - Key order is fixed (mode, actionabilityFilter, rules; ruleId, eventTypePattern,
  *   eventCategories, enabled) to satisfy the byte-identical-payload acceptance
  *   criterion.

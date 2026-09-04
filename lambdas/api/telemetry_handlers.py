@@ -1,6 +1,6 @@
 """Telemetry API handlers — client-side telemetry event recording.
 
-STORY-086: Beta Telemetry P1 Metrics (T-B-4 through T-B-8).
+Beta Telemetry P1 Metrics (P1 metrics).
 Security: User identity hashed (SHA-256 of Cognito sub). No PII stored.
 All telemetry is consent-gated at the aggregation layer.
 """
@@ -36,7 +36,7 @@ def _success(code, body):
 
 
 def handle_telemetry_session(event, context):
-    """POST /api/telemetry/session — record dashboard session (T-B-4).
+    """POST /api/telemetry/session — record dashboard session.
 
     Records a unique-user-per-day entry using a hashed Cognito sub.
     TTL: 30 days. Best-effort — failures never surface to the caller.
@@ -64,7 +64,7 @@ def handle_telemetry_session(event, context):
 
 
 def handle_telemetry_event(event, context):
-    """POST /api/telemetry/event — record UI interaction event (T-B-5).
+    """POST /api/telemetry/event — record UI interaction event.
 
     Tracks filter usage and dashboard interactions as atomic counters.
     TTL: 7 days. Best-effort — failures never surface to the caller.

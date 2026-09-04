@@ -1,33 +1,32 @@
 /**
- * Unit/integration tests for STORY-120:
+ * Unit/integration tests for the account-mapping import fix:
  *   Fix wizard silently dropping ServiceNow assignment-group-only account
  *   mappings from the POST /config/routing/import payload.
  *
- * Style mirrors ConfigurationWizardDispatch.test.tsx: mock ../api, ../config,
+ * Style mirrors the other wizard suites: mock ../api, ../config,
  * ../PlatformContext; dynamic-import the component; drive the Cloudscape
  * Wizard via its Next / Save & Activate buttons; use the two-checkbox lookup
- * pattern from ConfigurationWizardPlatformInference.test.tsx to enable
+ * pattern from the platform-inference suite to enable
  * ServiceNow on Step 0.
  *
  * Covers:
- *   - AC-8: asserts the EXACT request body shape sent to
+ *   - asserts the EXACT request body shape sent to
  *     POST /config/routing/import, including `snowAssignmentGroupId` when
  *     the source mapping has one set, for both a combined (JIRA + SNOW) row
  *     and a SNOW-only row.
- *   - AC-9: a negative-control test reproducing the pre-fix bug scenario
+ *   - a negative-control test reproducing the pre-fix bug scenario
  *     (account_id + snow_assignment_group_id only, no JIRA project) and
  *     proving the value is present in the request body — the exact case
  *     the pre-fix filter (`m.account_id && m.jira_project`) and map
  *     (`{accountId, jiraProject}` only) would have silently dropped.
- *   - AC-5 regression: a JIRA-only mapping (no ServiceNow platform enabled,
+ *   - regression: a JIRA-only mapping (no ServiceNow platform enabled,
  *     no snow_assignment_group_id) continues to save with the unchanged
  *     `{accountId, jiraProject}` shape and no `snowAssignmentGroupId` key.
  *
- * Per Dumbledore's design §6.5 / Harry's handoff note: `jiraProject` MUST
+ * Design note: `jiraProject` MUST
  * remain present (as an empty string) on SNOW-only rows, never omitted —
  * every assertion below checks for its presence explicitly, not just
- * `snowAssignmentGroupId`'s presence, to avoid the exact false-fail Dumbledore
- * warned about.
+ * `snowAssignmentGroupId`'s presence, to avoid a false-fail.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -75,7 +74,7 @@ import type { OnboardingConfig } from '../types';
 const mockApiFetch = vi.mocked(apiFetch);
 
 // Two distinct valid-format ServiceNow sys_ids (32 lowercase hex chars),
-// matching the shape enforced backend-side by Snape's Finding 3.
+// matching the shape enforced backend-side.
 const SNOW_SYS_ID_A = 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6';
 const SNOW_SYS_ID_B = 'b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a1';
 
@@ -90,7 +89,7 @@ function installHappyMock() {
     if (path === '/config/setup-timer/start') return {};
     if (path === '/config/setup-timer/complete') return {};
     if (path === '/config/routing/validate') return { results: [] };
-    if (path === '/config/routing/import') return { importId: 'import-story120' };
+    if (path === '/config/routing/import') return { importId: 'imp-001' };
     if (path === '/config/routing/import/confirm') return {};
     if (path === '/config/dispatch') return {};
     if (path === '/config/activate') return {};
@@ -195,10 +194,10 @@ function findMapping(mappings: any[], accountId: string): any {
 }
 
 // ---------------------------------------------------------------------------
-// AC-8 — exact request body shape, including snowAssignmentGroupId when set
+// Exact request body shape, including snowAssignmentGroupId when set
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationWizard saveAll() — AC-8: exact request body shape (STORY-120)', () => {
+describe('ConfigurationWizard saveAll() — exact request body shape', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -240,7 +239,7 @@ describe('ConfigurationWizard saveAll() — AC-8: exact request body shape (STOR
     const m = findMapping(mappings, '222222222222');
 
     expect(m.snowAssignmentGroupId).toBe(SNOW_SYS_ID_B);
-    // Dumbledore §6.5 / Harry's handoff: jiraProject must be present as ''
+    // jiraProject must be present as ''
     // (unconditional `jiraProject: m.jira_project`), NOT omitted from the
     // object. A test asserting it is absent would be testing the wrong shape.
     expect(m).toHaveProperty('jiraProject');
@@ -262,10 +261,10 @@ describe('ConfigurationWizard saveAll() — AC-8: exact request body shape (STOR
 });
 
 // ---------------------------------------------------------------------------
-// AC-9 — negative control reproducing the pre-fix bug
+// Negative control reproducing the pre-fix bug
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationWizard saveAll() — AC-9: negative control for the pre-fix bug (STORY-120)', () => {
+describe('ConfigurationWizard saveAll() — negative control for the pre-fix bug', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -356,10 +355,10 @@ describe('ConfigurationWizard saveAll() — AC-9: negative control for the pre-f
 });
 
 // ---------------------------------------------------------------------------
-// AC-5 regression — JIRA-only mappings unchanged
+// Regression — JIRA-only mappings unchanged
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationWizard saveAll() — AC-5 regression: JIRA-only mappings unchanged (STORY-120)', () => {
+describe('ConfigurationWizard saveAll() — regression: JIRA-only mappings unchanged', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -390,7 +389,7 @@ describe('ConfigurationWizard saveAll() — AC-5 regression: JIRA-only mappings 
   });
 
   it('does not regress the manual Add button for a plain JIRA row when ServiceNow is enabled but left blank', async () => {
-    // Guards TR-3/D3's widened guard: enabling ServiceNow must not require
+    // Guards the widened guard: enabling ServiceNow must not require
     // a ServiceNow value for a row where the user only wants JIRA routing.
     const user = userEvent.setup();
     const { container } = await renderWizard();

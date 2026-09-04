@@ -4,7 +4,7 @@ Implements ContentFormatter from itsm_client.py. Converts the
 platform-agnostic TicketContent dataclass into Atlassian Document Format
 (ADF) JSON structures for JIRA Cloud REST API v3.
 
-STORY-053: ADF construction logic extracted from ticket_builder.py.
+ADF construction logic extracted from ticket_builder.py.
 
 Consumers: ticket_builder.py (build_jira_ticket).
 Dependencies: resolve_core.adf_builder, resolve_core.itsm_client.
@@ -84,7 +84,7 @@ class JiraFormatter(ContentFormatter):
                 " — see attached CSV file (affected-resources.csv).",
             ]))
         elif content.resources_by_account:
-            # STORY-085: Multi-account grouped ticket — render per-account
+            # Multi-account grouped ticket — render per-account
             for acct_id, acct_name, acct_resources in content.resources_by_account:
                 display = f"{acct_name} ({acct_id})" if acct_name != acct_id else acct_id
                 sections.append(

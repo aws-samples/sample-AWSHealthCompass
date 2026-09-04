@@ -95,7 +95,7 @@ class ApiStack(cdk.Stack):
             },
         )
 
-        # IAM — least privilege per Snape IMPL-SEC-005-02
+        # IAM — least privilege
         campaigns_table.grant(self.sync_fn, "dynamodb:GetItem", "dynamodb:UpdateItem")
         resources_table.grant(
             self.sync_fn,
@@ -107,7 +107,7 @@ class ApiStack(cdk.Stack):
         # ServiceNow secret — conditional on Beta ServiceNow deployment
         if servicenow_secret:
             servicenow_secret.grant_read(self.sync_fn)
-            servicenow_secret.grant_write(self.sync_fn)  # STORY-138: OAuth token-refresh persists refreshed token (PutSecretValue) — mirrors ServiceNow integration Lambda
+            servicenow_secret.grant_write(self.sync_fn)  # OAuth token-refresh persists refreshed token (PutSecretValue) — mirrors ServiceNow integration Lambda
             self.sync_fn.add_environment("SERVICENOW_SECRET_ARN", servicenow_secret.secret_arn)
 
         # Schedule — hourly, disableable via CDK context
@@ -151,7 +151,6 @@ class ApiStack(cdk.Stack):
         )
 
         # IAM — DynamoDB: full CRUD on campaigns/resources, restricted on config
-        # per Snape IMPL-SEC-005-03
         campaigns_table.grant_read_write_data(self.reconciliation_fn)
         resources_table.grant_read_write_data(self.reconciliation_fn)
         config_table.grant(
@@ -160,19 +159,17 @@ class ApiStack(cdk.Stack):
         )
 
         # IAM — SNS publish + KMS encrypt for cross-stack encrypted topic
-        # per Snape IMPL-SEC-005-08
         integration_topic.grant_publish(self.reconciliation_fn)
         sns_key.grant_encrypt_decrypt(self.reconciliation_fn)
 
         # IAM — S3 PutObject restricted to payloads/* prefix
-        # per Snape IMPL-SEC-005-05
         self.reconciliation_fn.add_to_role_policy(iam.PolicyStatement(
             actions=["s3:PutObject"],
             resources=[payload_bucket.arn_for_objects("payloads/*")],
         ))
 
         # IAM — Health API (Resource: "*" required — no resource-level permissions)
-        # per Snape IMPL-SEC-005-01: region condition for defense-in-depth
+        # region condition for defense-in-depth
         # AWS Health Organizational View APIs do not support resource-level ARNs.
         self.reconciliation_fn.add_to_role_policy(iam.PolicyStatement(
             actions=[
@@ -188,13 +185,12 @@ class ApiStack(cdk.Stack):
             },
         ))
 
-        # IAM — Organizations: no resource-level permissions available (SEC-004-06)
+        # IAM — Organizations: no resource-level permissions available
         # organizations:ListAccounts does not support resource-level ARN constraints.
         # Transitive requirement of the AWS Health Organizational View API
         # (health:DescribeEventsForOrganization enumerates org accounts to build
-        # the org view). Mirrors the api_lambda grant (STORY-134, IMPL-SEC-134-01/04).
-        # NOTE: no aws:RequestedRegion condition — Organizations is a global service
-        # (IMPL-SEC-134-02/03).
+        # the org view). Mirrors the api_lambda grant.
+        # NOTE: no aws:RequestedRegion condition — Organizations is a global service.
         self.reconciliation_fn.add_to_role_policy(iam.PolicyStatement(
             actions=["organizations:ListAccounts"],
             resources=["*"],
@@ -211,7 +207,7 @@ class ApiStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # Telemetry Lambda (STORY-080, T-IMP-1)
+        # Telemetry Lambda
         # Daily aggregation of anonymized metrics. Consent-gated.
         # ---------------------------------------------------------------
         telemetry_log_group = logs.LogGroup(
@@ -255,7 +251,7 @@ class ApiStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # API Lambda (STORY-004)
+        # API Lambda
         # ---------------------------------------------------------------
         cors_allow_origin = self.node.try_get_context("cors_allow_origin") or "*"
 
@@ -263,7 +259,7 @@ class ApiStack(cdk.Stack):
             self, "ApiLambdaLogGroup",
             log_group_name="/aws/lambda/compass-api",
             retention=logs.RetentionDays.ONE_MONTH,
-            # TODO: Beta — change RemovalPolicy to RETAIN for audit log preservation (SEC-004-23)
+            # TODO: Beta — change RemovalPolicy to RETAIN for audit log preservation
             removal_policy=RemovalPolicy.DESTROY,
         )
 
@@ -291,7 +287,7 @@ class ApiStack(cdk.Stack):
             },
         )
 
-        # IAM — least privilege (Design §5.3, SEC-004-04, SEC-004-IMPL-01)
+        # IAM — least privilege
         config_table.grant_read_write_data(self.api_lambda)
         campaigns_table.grant_read_write_data(self.api_lambda)
         resources_table.grant_read_write_data(self.api_lambda)
@@ -302,9 +298,9 @@ class ApiStack(cdk.Stack):
             servicenow_secret.grant_write(self.api_lambda)
             self.api_lambda.add_environment("SERVICENOW_SECRET_ARN", servicenow_secret.secret_arn)
         payload_bucket.grant_read(self.api_lambda)
-        # SEC-004-IMPL-01: ONLY GetQueueAttributes — no consume/send
+        # ONLY GetQueueAttributes — no consume/send
         ingestion_queue.grant(self.api_lambda, "sqs:GetQueueAttributes")
-        # Organizations — no resource-level permissions available (SEC-004-06)
+        # Organizations — no resource-level permissions available
         # organizations:ListAccounts does not support resource-level ARN constraints.
         self.api_lambda.add_to_role_policy(iam.PolicyStatement(
             actions=["organizations:ListAccounts"],
@@ -312,7 +308,7 @@ class ApiStack(cdk.Stack):
         ))
         # API → Reconciliation invoke
         self.reconciliation_fn.grant_invoke(self.api_lambda)
-        # API → Sync invoke (STORY-038: on-demand sync trigger)
+        # API → Sync invoke (on-demand sync trigger)
         self.sync_fn.grant_invoke(self.api_lambda)
         # API → JIRA Integration Topic publish (BUG-S23-017: async ticket creation via SNS)
         integration_topic.grant_publish(self.api_lambda)
@@ -323,7 +319,7 @@ class ApiStack(cdk.Stack):
             resources=[payload_bucket.arn_for_objects("payloads/*")],
         ))
 
-        # API → Event Generator invoke (STORY-045: test event generation)
+        # API → Event Generator invoke (test event generation)
         if event_generator_fn:
             self.api_lambda.add_environment(
                 "EVENT_GENERATOR_FUNCTION_NAME", event_generator_fn.function_name,
@@ -331,9 +327,9 @@ class ApiStack(cdk.Stack):
             event_generator_fn.grant_invoke(self.api_lambda)
 
         # ---------------------------------------------------------------
-        # API Gateway REST API (STORY-004)
+        # API Gateway REST API
         # WAFv2 REGIONAL WebACL is attached to the prod stage below
-        # (STORY-131 — closes SEC-004-24: SQLi/XSS/known-bad-inputs/IP-reputation
+        # (SQLi/XSS/known-bad-inputs/IP-reputation
         # managed groups + per-IP rate limiting).
         # ---------------------------------------------------------------
         api_access_log_group = logs.LogGroup(
@@ -351,7 +347,7 @@ class ApiStack(cdk.Stack):
                 stage_name="prod",
                 throttling_rate_limit=50,
                 throttling_burst_limit=100,
-                # SEC-004-11: ERROR, not INFO — prevents header leaks in execution logs
+                # ERROR, not INFO — prevents header leaks in execution logs
                 logging_level=apigateway.MethodLoggingLevel.ERROR,
                 data_trace_enabled=False,
                 metrics_enabled=True,
@@ -377,7 +373,7 @@ class ApiStack(cdk.Stack):
             endpoint_types=[apigateway.EndpointType.REGIONAL],
         )
 
-        # SEC-004-22: Gateway responses with CORS headers on 4XX/5XX
+        # Gateway responses with CORS headers on 4XX/5XX
         for response_type in [
             apigateway.ResponseType.DEFAULT_4_XX,
             apigateway.ResponseType.DEFAULT_5_XX,
@@ -410,10 +406,9 @@ class ApiStack(cdk.Stack):
         usage_plan.add_api_stage(stage=self.api.deployment_stage)
 
         # ---------------------------------------------------------------
-        # WAFv2 — REGIONAL WebACL on the API Gateway prod stage (STORY-131)
-        # Closes SEC-004-24. L1/Cfn constructs only (no stable L2 for wafv2).
-        # DD-1/DD-3/DD-4/DD-6/DD-7/DD-9 · TR-1/TR-2/TR-5/TR-6/TR-7/TR-9/TR-10.
-        # Deploy-time knobs (read like cors_allow_origin, DD-4/DD-7/§3.4):
+        # WAFv2 — REGIONAL WebACL on the API Gateway prod stage
+        # L1/Cfn constructs only (no stable L2 for wafv2).
+        # Deploy-time knobs (read like cors_allow_origin):
         #   -c waf_rate_limit=<n>   default 2000 per-IP / 300s window
         #   -c waf_mode=block|count default 'block' (enforcing); 'count' forces
         #                           ALL rule actions/override_actions to count.
@@ -431,7 +426,7 @@ class ApiStack(cdk.Stack):
                 metric_name="CompassApiRegionalAcl",
                 sampled_requests_enabled=True,
             ),
-            # DD-6/TR-9: custom 403 JSON body for the API-edge rate-rule block.
+            # custom 403 JSON body for the API-edge rate-rule block.
             custom_response_bodies={
                 "waf-blocked-json": wafv2.CfnWebACL.CustomResponseBodyProperty(
                     content_type="APPLICATION_JSON",
@@ -449,7 +444,7 @@ class ApiStack(cdk.Stack):
             ),
         )
 
-        # TR-2: associate to the prod stage ARN. add_dependency ensures the
+        # Associate to the prod stage ARN. add_dependency ensures the
         # deployment stage exists before the association is created.
         regional_assoc = wafv2.CfnWebACLAssociation(
             self, "ApiWebAclAssociation",
@@ -461,7 +456,7 @@ class ApiStack(cdk.Stack):
         )
         regional_assoc.node.add_dependency(self.api)
 
-        # DD-9/TR-7: WAF logging -> dedicated CloudWatch log group. Name MUST
+        # WAF logging -> dedicated CloudWatch log group. Name MUST
         # start with 'aws-waf-logs-'. Credential headers redacted so Cognito
         # JWTs / API keys never land in WAF logs.
         api_waf_log_group = logs.LogGroup(
@@ -471,10 +466,10 @@ class ApiStack(cdk.Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
-        # Snape F-2 (MEDIUM, MANDATORY): CfnLoggingConfiguration does NOT create
+        # CfnLoggingConfiguration does NOT create
         # the CloudWatch Logs resource policy that authorizes WAF's vended-log
         # delivery principal (delivery.logs.amazonaws.com). Without it, log
-        # delivery is silently denied and AC-6 fails. Provision it explicitly,
+        # delivery is silently denied. Provision it explicitly,
         # scoped to this account + region (aws:SourceAccount + aws:SourceArn),
         # per AWS's documented WAF->CWL delivery policy.
         api_waf_log_policy = logs.ResourcePolicy(
@@ -541,8 +536,8 @@ class ApiStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # Cognito User Pool (STORY-067, Beta Phase 3)
-        # SEC-PH3-01: AccountRecovery.NONE — no self-service password reset
+        # Cognito User Pool (Beta Phase 3)
+        # AccountRecovery.NONE — no self-service password reset
         # ---------------------------------------------------------------
         self.user_pool = cognito.UserPool(
             self, "CompassUserPool",
@@ -593,7 +588,7 @@ class ApiStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # Lambda Authorizer (STORY-067, SEC-068)
+        # Lambda Authorizer
         # Dual-auth: Cognito JWT OR API key validated by Lambda.
         # Rollback: deploy with -c auth_mode=api_key_only to revert.
         # ---------------------------------------------------------------
@@ -680,10 +675,10 @@ class ApiStack(cdk.Stack):
             authorizer = cfn_authorizer  # Truthy sentinel; actual wiring via CFN override below
 
         # ---------------------------------------------------------------
-        # Route tree (Design §4.4 — 32 methods across 26 resources)
+        # Route tree (32 methods across 26 resources)
         # Auth: Lambda authorizer (cognito mode) or native API key (api_key_only mode)
-        # C-3: Rollback — deploy with `cdk deploy -c auth_mode=api_key_only`
-        # C-5: GET /api/status excluded from authorizer (health check)
+        # Rollback — deploy with `cdk deploy -c auth_mode=api_key_only`
+        # GET /api/status excluded from authorizer (health check)
         # ---------------------------------------------------------------
         # Build method options based on auth mode
         if authorizer:
@@ -714,7 +709,7 @@ class ApiStack(cdk.Stack):
         jira.add_method("DELETE", integration, **auth_opts)
         jira.add_resource("test").add_method("POST", integration, **auth_opts)
 
-        # /api/config/servicenow (STORY-064)
+        # /api/config/servicenow
         servicenow = config.add_resource("servicenow")
         servicenow.add_method("GET", integration, **auth_opts)
         servicenow.add_method("POST", integration, **auth_opts)
@@ -746,32 +741,32 @@ class ApiStack(cdk.Stack):
         config.add_resource("status").add_method("GET", integration, **auth_opts)
         config.add_resource("activate").add_method("POST", integration, **auth_opts)
 
-        # /api/config/setup-timer (STORY-079: Setup Time Measurement)
+        # /api/config/setup-timer (Setup Time Measurement)
         setup_timer = config.add_resource("setup-timer")
         setup_timer.add_method("GET", integration, **auth_opts)
         setup_timer.add_resource("start").add_method("POST", integration, **auth_opts)
         setup_timer.add_resource("complete").add_method("POST", integration, **auth_opts)
 
-        # /api/config/telemetry (STORY-080: Beta Telemetry)
+        # /api/config/telemetry (Beta Telemetry)
         config.add_resource("telemetry").add_method("GET", integration, **auth_opts)
 
-        # /api/config/cmdb-routing (STORY-087: CMDB-based routing)
+        # /api/config/cmdb-routing (CMDB-based routing)
         cmdb_routing = config.add_resource("cmdb-routing")
         cmdb_routing.add_method("GET", integration, **auth_opts)
         cmdb_routing.add_method("POST", integration, **auth_opts)
 
-        # /api/config/routing/services (STORY-088: Service-based routing)
+        # /api/config/routing/services (Service-based routing)
         services = routing.add_resource("services")
         services.add_method("GET", integration, **auth_opts)
         services.add_method("POST", integration, **auth_opts)
         services.add_resource("{service}").add_method("DELETE", integration, **auth_opts)
 
-        # /api/config/integrations (STORY-093: Multi-Platform ITSM Routing)
+        # /api/config/integrations (Multi-Platform ITSM Routing)
         integrations = config.add_resource("integrations")
         integrations.add_method("GET", integration, **auth_opts)
         integrations.add_method("PUT", integration, **auth_opts)
 
-        # /api/config/platform (STORY-055, STORY-065)
+        # /api/config/platform
         platform = config.add_resource("platform")
         platform.add_method("GET", integration, **auth_opts)
         platform.add_method("PUT", integration, **auth_opts)
@@ -787,7 +782,7 @@ class ApiStack(cdk.Stack):
         rule_id.add_method("PUT", integration, **auth_opts)
         rule_id.add_method("DELETE", integration, **auth_opts)
 
-        # /api/status — C-5: Health check exempt from Lambda authorizer and API key
+        # /api/status — Health check exempt from Lambda authorizer and API key
         api_root.add_resource("status").add_method("GET", integration, api_key_required=False)
 
         # /api/reconcile
@@ -800,26 +795,26 @@ class ApiStack(cdk.Stack):
             "GET", integration, **auth_opts,
         )
 
-        # /api/routing/coverage (STORY-071, B-ROUTE-3)
+        # /api/routing/coverage
         routing_api = api_root.add_resource("routing")
         routing_coverage = routing_api.add_resource("coverage")
         routing_coverage.add_method("GET", integration, **auth_opts)
         routing_coverage.add_resource("unroutable").add_method("GET", integration, **auth_opts)
 
-        # /api/routing/orphans (STORY-089: Orphan Queue Visibility)
+        # /api/routing/orphans (Orphan Queue Visibility)
         routing_api.add_resource("orphans").add_method("GET", integration, **auth_opts)
 
-        # /api/sync (STORY-038: on-demand JIRA sync trigger)
+        # /api/sync (on-demand JIRA sync trigger)
         api_root.add_resource("sync").add_method("POST", integration, **auth_opts)
 
-        # /api/generate-events (STORY-045: test event generation)
+        # /api/generate-events (test event generation)
         api_root.add_resource("generate-events").add_method("POST", integration, **auth_opts)
 
-        # /api/test/route (STORY-077: dry-run routing test)
+        # /api/test/route (dry-run routing test)
         test_resource = api_root.add_resource("test")
         test_resource.add_resource("route").add_method("POST", integration, **auth_opts)
 
-        # /api/telemetry (STORY-086: Beta P1 Metrics T-B-4, T-B-5)
+        # /api/telemetry (Beta P1 Metrics)
         telemetry_api = api_root.add_resource("telemetry")
         telemetry_api.add_resource("session").add_method("POST", integration, **auth_opts)
         telemetry_api.add_resource("event").add_method("POST", integration, **auth_opts)
@@ -850,7 +845,7 @@ class ApiStack(cdk.Stack):
             destination_bucket=dashboard_bucket,
             distribution=dashboard_distribution,
             distribution_paths=["/config.json"],
-            prune=False,  # STORY-106: Shared bucket — CoreStack deploys dashboard assets here
+            prune=False,  # Shared bucket — CoreStack deploys dashboard assets here
         )
 
         # ---------------------------------------------------------------
@@ -858,8 +853,8 @@ class ApiStack(cdk.Stack):
         # ---------------------------------------------------------------
         CfnOutput(self, "SyncLambdaArn", value=self.sync_fn.function_arn)
         CfnOutput(self, "ReconciliationLambdaArn", value=self.reconciliation_fn.function_arn)
-        # SEC-004-03: Expose key_id only — retrieve value via:
-        #   aws apigateway get-api-key --api-key {id} --include-value (SEC-004-25)
+        # Expose key_id only — retrieve value via:
+        #   aws apigateway get-api-key --api-key {id} --include-value
         CfnOutput(self, "ApiUrl", value=self.api.url)
         CfnOutput(self, "ApiKeyId", value=self.api_key.key_id)
         CfnOutput(self, "UserPoolId", value=self.user_pool.user_pool_id)

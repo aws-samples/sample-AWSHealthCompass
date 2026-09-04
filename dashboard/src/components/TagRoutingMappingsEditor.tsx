@@ -1,17 +1,16 @@
 /**
- * STORY-125 (RT-03): Tag value → routing-target mapping editor.
- * STORY-140 (RT-10): platform-aware — persists a ServiceNow assignment-group
+ * Tag value → routing-target mapping editor.
+ * Platform-aware — persists a ServiceNow assignment-group
  * target (+ record type) for a SNOW-only deployment, hiding the JIRA-only
- * target fields, reusing STORY-139's `snowEnabled`/`jiraEnabled` gating,
- * `RECORD_TYPE_OPTIONS`, and SNOW vocabulary. JIRA-only behavior is unchanged
- * (AC-140.6).
+ * target fields, reusing the `snowEnabled`/`jiraEnabled` gating,
+ * `RECORD_TYPE_OPTIONS`, and SNOW vocabulary. JIRA-only behavior is unchanged.
  *
- * A CONTROLLED component (host owns row state — see interface-review GAP-1) so
+ * A CONTROLLED component (host owns row state) so
  * it works identically in the wizard (where the Step-2 content unmounts before
  * `saveAll` fires from Review) and in the RoutingEditModal. The host reads its
  * own state at save time; this component never calls the network itself.
  *
- * Security (Snape SR-125-12 / MUST-140-3 / SR-139-1/2/3): all user-supplied tag
+ * Security: all user-supplied tag
  * values, sys_ids, and all backend `reason`/`code` messages render as inert
  * text via Cloudscape nodes only — no `dangerouslySetInnerHTML`, no HTML
  * interpolation, no href/src/onClick/style sink. Tag values are shown read-only
@@ -33,17 +32,17 @@ import {
   validateSnowGroupIdClient,
 } from './tagMappings';
 
-// STORY-139 vocabulary, reused verbatim (coin no new labels — Harry req 7).
+// ServiceNow record-type vocabulary, reused verbatim (coin no new labels).
 const RECORD_TYPE_OPTIONS = [
   { label: 'Change Request', value: 'change_request' },
   { label: 'Incident', value: 'incident' },
 ];
 
 /**
- * STORY-140: map STORY-137 structured SNOW error codes to targeted inline
- * messages (reuse STORY-139 error-code map). Falls back to the raw `reason`
+ * Map structured SNOW error codes to targeted inline
+ * messages. Falls back to the raw `reason`
  * (JIRA-branch behavior) when the code is unrecognized/absent. All returned
- * text renders as inert Cloudscape text (MUST-140-3).
+ * text renders as inert Cloudscape text.
  */
 export function snowErrorMessage(code: string | undefined, reason: string, sysId?: string): string {
   switch (code) {
@@ -66,9 +65,9 @@ interface TagRoutingMappingsEditorProps {
   /** The configured tag key (for empty-state copy). */
   tagKey: string;
   /**
-   * STORY-140: platform gating (from `resolvePlatformContext`). Default
+   * Platform gating (from `resolvePlatformContext`). Default
    * (snowEnabled=false, jiraEnabled=true) preserves pre-epic JIRA-only behavior
-   * for any host that does not yet pass these props (AC-140.6).
+   * for any host that does not yet pass these props.
    */
   snowEnabled?: boolean;
   jiraEnabled?: boolean;
@@ -78,15 +77,15 @@ interface TagRoutingMappingsEditorProps {
   /** Controlled "removed since load" set (host state) — persisted rows removed this session. */
   removedTagValues: string[];
   onRemovedChange: (values: string[]) => void;
-  /** Per-row backend error reasons from the last save, keyed by tagValue (SR-125-4 / NOTE-C). */
+  /** Per-row backend error reasons from the last save, keyed by tagValue. */
   rowErrors?: Record<string, string>;
   /**
-   * STORY-140: section-level precondition alert (e.g. CFG_SNOW_NOT_CONFIGURED),
+   * Section-level precondition alert (e.g. CFG_SNOW_NOT_CONFIGURED),
    * rendered inert above the table. Owned/mapped by the host from the top-level
    * error object.
    */
   sectionError?: string | null;
-  /** Load-error affordance (NOTE-F): shown instead of the table; blocks save upstream. */
+  /** Load-error affordance: shown instead of the table; blocks save upstream. */
   loadError?: string | null;
   onRetryLoad?: () => void;
   loading?: boolean;
@@ -134,7 +133,7 @@ export default function TagRoutingMappingsEditor({
     return <Box textAlign="center" padding="s"><Spinner /> Loading tag mappings…</Box>;
   }
 
-  // SNOW-only iff snowEnabled and NOT jiraEnabled (STORY-136 operative rule
+  // SNOW-only iff snowEnabled and NOT jiraEnabled (operative rule
   // consumed via resolvePlatformContext). Dual still shows the JIRA fields.
   const snowOnly = snowEnabled && !jiraEnabled;
   const keyLabel = (tagKey || '').trim() || 'tag';
@@ -144,7 +143,7 @@ export default function TagRoutingMappingsEditor({
     setAddError('');
     const value = newTagValue.trim();
     // V1/V4/V5 (advisory; backend authoritative). tagValue validation UNCHANGED
-    // and platform-independent (MUST-140-1).
+    // and platform-independent.
     const valueErr = validateTagValueClient(value);
     if (valueErr) { setAddError(valueErr); return; }
     // V2: target requirement is platform-aware.
@@ -191,19 +190,19 @@ export default function TagRoutingMappingsEditor({
 
   const removeRow = (row: TagMappingRow) => {
     // A row that existed at load (persisted/edited) must be DELETEd on save;
-    // a brand-new unsaved row is simply dropped (NOTE-E: no delete-on-disable).
+    // a brand-new unsaved row is simply dropped (no delete-on-disable).
     if (row.rowStatus !== 'new' && !removedTagValues.includes(row.tagValue)) {
       onRemovedChange([...removedTagValues, row.tagValue]);
     }
     onMappingsChange(mappings.filter(m => m.tagValue !== row.tagValue));
   };
 
-  // Column set is platform-conditional (AC-140.3; reuse STORY-139 gating).
+  // Column set is platform-conditional (reuse platform gating).
   const columnDefinitions: Array<{ id: string; header: string; cell: (m: TagMappingRow) => React.ReactNode; width?: number }> = [
     {
       id: 'tagValue',
       header: 'Tag value',
-      // SR-125-12 / MUST-140-3: read-only, text-only rendering. Rename = remove + re-add.
+      // Read-only, text-only rendering. Rename = remove + re-add.
       cell: (m: TagMappingRow) => <Box variant="code">{m.tagValue}</Box>,
       width: 220,
     },
@@ -283,7 +282,7 @@ export default function TagRoutingMappingsEditor({
     {
       id: 'status',
       header: 'Status',
-      // Per-row backend reason (SR-125-4 / NOTE-C) rendered as inert text.
+      // Per-row backend reason rendered as inert text.
       cell: (m: TagMappingRow) =>
         rowErrors[m.tagValue]
           ? <StatusIndicator type="error">{rowErrors[m.tagValue]}</StatusIndicator>

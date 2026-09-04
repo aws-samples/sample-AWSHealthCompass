@@ -1,30 +1,25 @@
 /**
- * STORY-128 / RT-11 — Layer B (Vitest) ENABLED-PATH completion GATE.
+ * Layer B (Vitest) ENABLED-PATH completion GATE.
  *
- * Owner: Moody (QA). Implementation-flow Step 7. Branch: feature/resource-tags.
+ * This file is the dashboard GATE confirmation. The exhaustive
+ * per-feature coverage lives in the owning suites (all GREEN):
+ *   B1  tagSource selector       → the tagSource selector suite
+ *   B2  mapping editor CRUD/copy  → the tag-routing mapping editor suites
+ *   B3  strategy persist + Review → the tag-routing strategy wizard suite
  *
- * This file is the STORY-128 dashboard GATE confirmation. The exhaustive
- * per-story coverage lives in the owning-story suites (all GREEN):
- *   B1  tagSource selector       → TagSourceSelector.story124.test.tsx (STORY-124)
- *   B2  mapping editor CRUD/copy  → TagRoutingMappingsEditor.story125.test.tsx +
- *                                   tagMappings.story125.test.tsx (STORY-125)
- *   B3  strategy persist + Review → ConfigurationWizardTagRouting.story123.test.tsx
- *                                   (STORY-123)
- *
- * Per Luna's interface review (08_luna_interface_review.md §1), STORY-128 asserts
- * against the OWNING Luna specs, never ad-hoc strings. This gate file locks the
- * marquee cross-story invariants — the ones whose regression would let a green
- * tree certify a feature that is unsafe (Snape STC-9 stored-XSS) or dishonest
- * (RT-05 false "Enabled", RT-14 partial-save-as-success):
+ * This gate file locks the
+ * marquee cross-feature invariants — the ones whose regression would let a green
+ * tree certify a feature that is unsafe (stored-XSS) or dishonest
+ * (false "Enabled", partial-save-as-success):
  *
  *   B1  — selector payload vocabulary is EXACTLY {resource|account|both}, default
- *         'account' persisted explicitly (STORY-124 §1–2).
- *   B2  — editor renders tag values + backend reasons as INERT TEXT (Snape STC-9:
- *         no dangerouslySetInnerHTML); DELETE-on-remove (not POST-omission);
+ *         'account' persisted explicitly.
+ *   B2  — editor renders tag values + backend reasons as INERT TEXT (no
+ *         dangerouslySetInnerHTML); DELETE-on-remove (not POST-omission);
  *         V1–V3 add-error copy verbatim; partial-save {created,updated,
- *         validationErrors} is a WARNING, not success (STORY-125 §4/§5.3/§10/§15).
+ *         validationErrors} is a WARNING, not success.
  *   B3  — saveAll POSTs /config/routing/strategy BEFORE /config/activate; green
- *         "Enabled" appears ONLY after a 200 (STORY-123 §2.3/§3.1).
+ *         "Enabled" appears ONLY after a 200.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -72,7 +67,7 @@ import type { OnboardingConfig } from '../types';
 const mockApiFetch = vi.mocked(apiFetch);
 
 // ===========================================================================
-// B2 — Mapping editor: text-only rendering (STC-9), CRUD, verbatim copy
+// B2 — Mapping editor: text-only rendering, CRUD, verbatim copy
 // ===========================================================================
 
 import TagRoutingMappingsEditor from '../components/TagRoutingMappingsEditor';
@@ -115,7 +110,7 @@ function EditorHost({
   );
 }
 
-describe('STORY-128 B2 — tag mapping editor (STORY-125 authority)', () => {
+describe('B2 — tag mapping editor', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('gates on enabled=false (renders nothing)', () => {
@@ -137,7 +132,7 @@ describe('STORY-128 B2 — tag mapping editor (STORY-125 authority)', () => {
     expect(screen.getByText(/No tag-value mappings yet\./)).toBeInTheDocument();
   });
 
-  it('STC-9 — renders a hostile tag value as INERT TEXT (no dangerouslySetInnerHTML, no live node)', () => {
+  it('renders a hostile tag value as INERT TEXT (no dangerouslySetInnerHTML, no live node)', () => {
     const xss = '<img src=x onerror=alert(1)>';
     const initial: TagMappingRow[] = [
       { tagValue: xss, jiraProject: 'CLOUDOPS', jiraIssueType: 'Task', rowStatus: 'persisted' },
@@ -150,7 +145,7 @@ describe('STORY-128 B2 — tag mapping editor (STORY-125 authority)', () => {
     expect(container.querySelector('script')).toBeNull();
   });
 
-  it('STC-9 — renders a hostile backend row reason as inert text (echoed rejected value)', () => {
+  it('renders a hostile backend row reason as inert text (echoed rejected value)', () => {
     const initial: TagMappingRow[] = [
       { tagValue: 'platform', jiraProject: 'CLOUDOPS', jiraIssueType: 'Task', rowStatus: 'persisted' },
     ];
@@ -215,7 +210,7 @@ describe('STORY-128 B2 — tag mapping editor (STORY-125 authority)', () => {
   });
 });
 
-describe('STORY-128 B2 — tagMappings module: partial-save honesty + validation copy', () => {
+describe('B2 — tagMappings module: partial-save honesty + validation copy', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('validateTagValueClient — V1/V4/V5 copy verbatim + MAX length constant', () => {
@@ -292,8 +287,8 @@ describe('STORY-128 B2 — tagMappings module: partial-save honesty + validation
 });
 
 // ===========================================================================
-// B1 — tagSource selector payload vocabulary + explicit default (STORY-124)
-// B3 — saveAll POSTs strategy before activate + truthful "Enabled" (STORY-123)
+// B1 — tagSource selector payload vocabulary + explicit default
+// B3 — saveAll POSTs strategy before activate + truthful "Enabled"
 // ===========================================================================
 
 function installHappyMock() {
@@ -362,7 +357,7 @@ function strategyBody(): any {
   return JSON.parse((call[1] as any).body);
 }
 
-describe('STORY-128 B1 — tagSource selector payload vocabulary (STORY-124 authority)', () => {
+describe('B1 — tagSource selector payload vocabulary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -397,7 +392,7 @@ describe('STORY-128 B1 — tagSource selector payload vocabulary (STORY-124 auth
   });
 });
 
-describe('STORY-128 B3 — saveAll sequences strategy before activate + truthful Enabled (STORY-123 authority)', () => {
+describe('B3 — saveAll sequences strategy before activate + truthful Enabled', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();

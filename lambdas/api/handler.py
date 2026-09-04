@@ -1,14 +1,14 @@
 """Resolve API Lambda — route handler.
 
-Implements JIRA connection endpoints (STORY-027) plus status endpoint (STORY-004).
+Implements JIRA connection endpoints plus status endpoint.
 Backed by Amazon API Gateway with API key authentication.
 
-SECURITY (SEC-004-16, SEC-004-17):
+SECURITY:
   Do NOT log event["headers"] — contains x-api-key.
   Do NOT log event["body"] on credential endpoints — contains JIRA token.
-  SEC-004-13: MUST validate JIRA credentials before AWS Secrets Manager write.
-  SEC-004-14: MUST validate JIRA URL: HTTPS + .atlassian.net only.
-  SEC-004-15: MUST log every Secrets Manager write with request ID.
+  MUST validate JIRA credentials before AWS Secrets Manager write.
+  MUST validate JIRA URL: HTTPS + .atlassian.net only.
+  MUST log every Secrets Manager write with request ID.
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ JIRA_SECRET_NAME = "compass/jira-credentials"  # nosec B105 — Secrets Manager 
 SYNC_FUNCTION_NAME = os.environ.get("SYNC_FUNCTION_NAME", "")
 JIRA_FUNCTION_NAME = os.environ.get("JIRA_FUNCTION_NAME", "")
 
-# SEC-004-08: Warn on wildcard CORS origin at cold start.
+# Warn on wildcard CORS origin at cold start.
 if CORS_ORIGIN == "*":
     logger.warning("CORS_ALLOW_ORIGIN is '*' — set to dashboard domain for production")
 
@@ -69,7 +69,7 @@ def lambda_handler(event, context):
     path = event.get("resource", "")
     request_id = event.get("requestContext", {}).get("requestId", "")
 
-    # SEC-004-16: Log only safe fields — never headers or body.
+    # Log only safe fields — never headers or body.
     logger.info(json.dumps({
         "message": "API request",
         "method": method,
@@ -80,13 +80,13 @@ def lambda_handler(event, context):
     handler_fn = _ROUTES.get((method, path))
     if handler_fn:
         try:
-            # STORY-070: RBAC enforcement
+            # RBAC enforcement
             rbac_error = _check_rbac(event)
             if rbac_error:
                 return rbac_error
             return handler_fn(event, context)
         except Exception:
-            # IMPL-SEC-027-C2: Never expose raw exception details to caller
+            # Never expose raw exception details to caller
             logger.exception("Unhandled error in %s %s", method, path)
             return _error(500, "SYS_INTERNAL_ERROR", "An internal error occurred.")
 
@@ -94,7 +94,7 @@ def lambda_handler(event, context):
 
 
 # ===================================================================
-# RBAC Enforcement (STORY-070)
+# RBAC Enforcement
 # ===================================================================
 
 def _check_rbac(event: dict) -> dict | None:
@@ -116,7 +116,7 @@ def _check_rbac(event: dict) -> dict | None:
     groups_str = authorizer.get("groups", "")
     groups = [g.strip() for g in groups_str.split(",") if g.strip()]
 
-    # API key auth method grants Admins-equivalent access (SEC-068-05)
+    # API key auth method grants Admins-equivalent access
     if auth_method == "api_key":
         return None
 
@@ -157,11 +157,11 @@ def handle_status(event, context):
 def handle_jira_save(event, context):
     """Save JIRA connection: validate credentials, store in Secrets Manager + ConfigTable.
 
-    STORY-102: Supports partial credential update.
+    Supports partial credential update.
     - If apiToken is absent/null/empty → preserve existing credentials in Secrets Manager.
     - If apiToken is present with a non-empty string → full credential update (existing behavior).
 
-    Design: Dumbledore §4.1. Security: IMPL-SEC-027-C1, C2, H1, H2, M1, M4.
+    Security review applied.
     """
     try:
         from validators import validate_jira_input, normalize_base_url
@@ -178,7 +178,7 @@ def handle_jira_save(event, context):
     if body is None:
         return _error(400, "CFG_INVALID_REQUEST", "Request body must be valid JSON")
 
-    # STORY-102: Detect whether credential should be preserved or updated
+    # Detect whether credential should be preserved or updated
     api_token_value = body.get("apiToken")
     credential_present = (
         "apiToken" in body
@@ -188,7 +188,7 @@ def handle_jira_save(event, context):
     )
 
     if credential_present:
-        # --- Full credential update path (existing behavior, AC-11 backward compat) ---
+        # --- Full credential update path (existing behavior, backward compat) ---
         errors = validate_jira_input(body)
         if errors:
             return _error(400, errors[0]["code"], errors[0]["message"])
@@ -197,14 +197,14 @@ def handle_jira_save(event, context):
         email = body["email"].strip()
         api_token = body["apiToken"]
 
-        # Validate against JIRA (SEC-004-13)
+        # Validate against JIRA
         result = validate_connection(base_url, email, api_token)
 
         if not result["success"]:
             status_code = 502 if result["errorCode"] in ("CONN_JIRA_UNREACHABLE", "CONN_JIRA_SERVER_ERROR") else 400
             return _error(status_code, result["errorCode"], result["message"])
 
-        # Write to Secrets Manager (SEC-004-15)
+        # Write to Secrets Manager
         now_iso = _now_iso()
         secret_value = json.dumps({"email": email, "api_token": api_token})
         secret_arn = _write_secret(secret_value)
@@ -249,7 +249,7 @@ def handle_jira_save(event, context):
         })
 
     else:
-        # --- STORY-102: Partial update path — preserve credentials ---
+        # --- Partial update path — preserve credentials ---
         # Validate non-credential fields only
         base_url_raw = body.get("baseUrl")
         email_raw = body.get("email")
@@ -371,14 +371,14 @@ def handle_jira_save(event, context):
 def handle_jira_get(event, context):
     """Return JIRA connection status. Never returns credentials.
 
-    STORY-102: Added email, credentialsConfigured, hasApiToken fields.
+    Added email, credentialsConfigured, hasApiToken fields.
     Security: No credential values are ever returned — only boolean metadata.
     """
     item = _read_jira_config()
     if item is None:
         return _success(200, None)
 
-    # STORY-102: Check if credentials exist in Secrets Manager (boolean only)
+    # Check if credentials exist in Secrets Manager (boolean only)
     credentials_configured = False
     secret_arn = item.get("jira_secret_arn", "")
     if secret_arn:
@@ -407,7 +407,7 @@ def handle_jira_get(event, context):
 def handle_jira_test(event, context):
     """Test existing JIRA connection. Returns 200 with status even on JIRA failure.
 
-    STORY-102: Accepts optional body with baseUrl/email overrides for Test Connection
+    Accepts optional body with baseUrl/email overrides for Test Connection
     with stored credentials. If apiToken is provided, uses it instead of stored token.
     FINDING-1: SSRF validation enforced on baseUrl override.
     """
@@ -439,7 +439,7 @@ def handle_jira_test(event, context):
             "message": "Could not read stored credentials. Re-save the connection.",
         })
 
-    # STORY-102: Accept optional body overrides
+    # Accept optional body overrides
     body = _parse_body(event) or {}
 
     # Determine test URL (override or stored)
@@ -511,12 +511,12 @@ def handle_jira_test(event, context):
 def handle_jira_delete(event, context):
     """Remove JIRA connection config and Secrets Manager secret.
 
-    Design: Dumbledore §4.4. Security: IMPL-SEC-027-H3, M4.
+    Security review applied.
     """
     request_id = event.get("requestContext", {}).get("requestId", "")
     source_ip = event.get("requestContext", {}).get("identity", {}).get("sourceIp", "")
 
-    # IMPL-SEC-027-H3: Require ?confirm=true
+    # Require ?confirm=true
     params = event.get("queryStringParameters") or {}
     if params.get("confirm") != "true":
         return _error(400, "CFG_CONFIRMATION_REQUIRED",
@@ -538,7 +538,7 @@ def handle_jira_delete(event, context):
 
     now_iso = _now_iso()
 
-    # IMPL-SEC-027-H3/M4: Audit log at WARN level
+    # Audit log at WARN level
     logger.warning(json.dumps({
         "audit": True,
         "action": "JIRA_CONNECTION_DELETE",
@@ -551,7 +551,7 @@ def handle_jira_delete(event, context):
 
 
 # ===================================================================
-# Dashboard endpoints (STORY-038)
+# Dashboard endpoints
 # ===================================================================
 
 try:
@@ -644,7 +644,7 @@ def _write_secret(secret_value: str) -> str | None:
     Tries PutSecretValue first (update existing), falls back to
     CreateSecret on ResourceNotFoundException (first time or after delete).
 
-    IMPL-SEC-027-M3: Handles InvalidRequestException after recent delete
+    Handles InvalidRequestException after recent delete
     with a single retry after 1 second.
 
     Returns secret ARN on success, None on failure.
@@ -670,7 +670,7 @@ def _write_secret(secret_value: str) -> str | None:
 def _create_secret_with_retry(secret_value: str) -> str | None:
     """CreateSecret with one retry for InvalidRequestException.
 
-    IMPL-SEC-027-M3: After ForceDeleteWithoutRecovery, Secrets Manager
+    After ForceDeleteWithoutRecovery, Secrets Manager
     has eventual consistency. Retry once after 1 second.
     """
     for attempt in range(2):
@@ -755,7 +755,7 @@ def _now_iso() -> str:
 
 
 # ===================================================================
-# Routing endpoints (STORY-028) — delegated to routing_handlers.py
+# Routing endpoints — delegated to routing_handlers.py
 # ===================================================================
 
 try:
@@ -791,7 +791,7 @@ _ROUTES[("DELETE", "/api/config/routing/accounts/{accountId}")] = _handle_routin
 _ROUTES[("POST", "/api/config/routing/validate")] = _handle_routing_validate
 
 # ===================================================================
-# Tag routing endpoints (STORY-029) — delegated to tag_routing_handlers.py
+# Tag routing endpoints — delegated to tag_routing_handlers.py
 # ===================================================================
 
 try:
@@ -818,7 +818,7 @@ _ROUTES[("DELETE", "/api/config/routing/tags/{tagValue}")] = _handle_tag_mapping
 _ROUTES[("GET", "/api/config/routing/tag-preview")] = _handle_tag_preview
 
 # ===================================================================
-# Dispatch & Activation endpoints (STORY-030) — delegated to dispatch_handlers.py
+# Dispatch & Activation endpoints — delegated to dispatch_handlers.py
 # ===================================================================
 
 try:
@@ -848,7 +848,7 @@ _ROUTES[("GET", "/api/config/status")] = _handle_config_status
 _ROUTES[("POST", "/api/config/activate")] = _handle_activate
 
 # ===================================================================
-# Orphan queue notification endpoints (STORY-048)
+# Orphan queue notification endpoints
 # ===================================================================
 
 try:
@@ -866,7 +866,7 @@ _ROUTES[("GET", "/api/config/routing/orphan-status")] = _handle_orphan_status
 _ROUTES[("GET", "/api/config/routing/suggestions")] = _handle_routing_suggestions
 
 # ===================================================================
-# ServiceNow configuration endpoints (STORY-064)
+# ServiceNow configuration endpoints
 # ===================================================================
 
 try:
@@ -890,7 +890,7 @@ _ROUTES[("GET", "/api/config/servicenow")] = _handle_servicenow_get
 _ROUTES[("DELETE", "/api/config/servicenow")] = _handle_servicenow_delete
 
 # ===================================================================
-# Routing coverage endpoints (STORY-071)
+# Routing coverage endpoints
 # ===================================================================
 
 try:
@@ -909,7 +909,7 @@ _ROUTES[("GET", "/api/routing/coverage/unroutable")] = _handle_unroutable
 _ROUTES[("GET", "/api/metrics/routing-coverage")] = _handle_routing_coverage
 
 # ===================================================================
-# Platform switch endpoint (STORY-055) and platform selection (STORY-065)
+# Platform switch endpoint and platform selection
 # ===================================================================
 
 try:
@@ -939,7 +939,7 @@ _ROUTES[("GET", "/api/config/integrations")] = _handle_integrations_get
 _ROUTES[("PUT", "/api/config/integrations")] = _handle_integrations_put
 
 # ===================================================================
-# Test/dry-run endpoints (STORY-077)
+# Test/dry-run endpoints
 # ===================================================================
 
 try:
@@ -950,7 +950,7 @@ except ImportError:
 _ROUTES[("POST", "/api/test/route")] = _handle_test_route
 
 # ===================================================================
-# Setup timer endpoints (STORY-079)
+# Setup timer endpoints
 # ===================================================================
 
 try:
@@ -971,7 +971,7 @@ _ROUTES[("POST", "/api/config/setup-timer/complete")] = _handle_setup_timer_comp
 _ROUTES[("GET", "/api/config/setup-timer")] = _handle_setup_timer_get
 
 # ===================================================================
-# Telemetry status endpoint (STORY-080)
+# Telemetry status endpoint
 # ===================================================================
 
 try:
@@ -982,7 +982,7 @@ except ImportError:
 _ROUTES[("GET", "/api/config/telemetry")] = _handle_telemetry_status
 
 # ===================================================================
-# Telemetry session/event endpoints (STORY-086: Beta P1 Metrics T-B-4, T-B-5)
+# Telemetry session/event endpoints
 # ===================================================================
 
 try:
@@ -1000,7 +1000,7 @@ _ROUTES[("POST", "/api/telemetry/session")] = _handle_telemetry_session
 _ROUTES[("POST", "/api/telemetry/event")] = _handle_telemetry_event
 
 # ===================================================================
-# CMDB routing config endpoints (STORY-087)
+# CMDB routing config endpoints
 # ===================================================================
 
 try:
@@ -1018,7 +1018,7 @@ _ROUTES[("GET", "/api/config/cmdb-routing")] = _handle_cmdb_config_get
 _ROUTES[("POST", "/api/config/cmdb-routing")] = _handle_cmdb_config_save
 
 # ===================================================================
-# Service-based routing config endpoints (STORY-088)
+# Service-based routing config endpoints
 # ===================================================================
 
 try:
@@ -1039,7 +1039,7 @@ _ROUTES[("POST", "/api/config/routing/services")] = _handle_service_routing_save
 _ROUTES[("DELETE", "/api/config/routing/services/{service}")] = _handle_service_routing_delete
 
 # ===================================================================
-# Orphan queue visibility endpoint (STORY-089)
+# Orphan queue visibility endpoint
 # ===================================================================
 
 try:

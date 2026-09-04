@@ -1,5 +1,5 @@
 /**
- * Unit tests for STORY-115: shared dispatch wire-contract serializer.
+ * Unit tests for the shared dispatch wire-contract serializer.
  *
  * `buildDispatchBody` is the single boundary at which in-memory dispatch
  * state becomes the `POST /config/dispatch` wire body. These tests pin:

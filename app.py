@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve + ITSM Integration — CDK App Entry Point."""
+"""Compass + ITSM Integration — CDK App Entry Point."""
 import aws_cdk as cdk
 
 from stacks.core_stack import CoreStack
@@ -20,15 +20,15 @@ env_west = cdk.Environment(
     region="us-west-2",
 )
 
-core = CoreStack(app, "ResolveCore", env=env_east)
+core = CoreStack(app, "CompassCore", env=env_east)
 
-EventCaptureStack(app, "ResolveEventCapture",
+EventCaptureStack(app, "CompassEventCapture",
     env=env_west,
     ingestion_queue_arn=core.ingestion_queue.queue_arn,
     ops_alert_email=core.ops_alert_email,
 )
 
-jira = JiraIntegrationStack(app, "ResolveJira",
+jira = JiraIntegrationStack(app, "CompassJira",
     env=env_east,
     integration_topic=core.integration_topic,
     ops_alerts_topic=core.ops_alerts_topic,
@@ -42,7 +42,7 @@ jira = JiraIntegrationStack(app, "ResolveJira",
 # CTRL-02: ServiceNow stack MUST NOT deploy without explicit opt-in.
 servicenow = None
 if app.node.try_get_context("deploy_servicenow") == "true":
-    servicenow = ServiceNowIntegrationStack(app, "ResolveServiceNow",
+    servicenow = ServiceNowIntegrationStack(app, "CompassServiceNow",
         env=env_east,
         integration_topic=core.integration_topic,
         ops_alerts_topic=core.ops_alerts_topic,
@@ -56,13 +56,13 @@ if app.node.try_get_context("deploy_servicenow") == "true":
 # CTRL-10: Test tools MUST NOT deploy without explicit opt-in.
 test_tools = None
 if app.node.try_get_context("deploy_test_tools") == "true":
-    test_tools = TestToolsStack(app, "ResolveTestTools",
+    test_tools = TestToolsStack(app, "CompassTestTools",
         env=env_east,
         ingestion_queue_arn=core.ingestion_queue.queue_arn,
         ingestion_queue_url=core.ingestion_queue.queue_url,
     )
 
-ApiStack(app, "ResolveApi",
+ApiStack(app, "CompassApi",
     env=env_east,
     campaigns_table=core.campaigns_table,
     resources_table=core.resources_table,

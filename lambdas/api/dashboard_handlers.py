@@ -1,4 +1,4 @@
-"""Dashboard API handlers for STORY-038.
+"""Dashboard API handlers.
 
 Implements 10 endpoints: campaigns, config, routing, dispatch, and operations.
 Self-contained — no imports from handler.py to avoid circular dependency.
@@ -20,7 +20,7 @@ try:
 except ImportError:
     from lambdas.shared.python.resolve_core.grouping import group_resources
 
-# STORY-136: shared platform-resolution seam (single source of truth).
+# shared platform-resolution seam (single source of truth).
 try:
     from resolve_core.config_schema import operative_platform, resolve_platforms
 except ImportError:
@@ -29,11 +29,11 @@ except ImportError:
         resolve_platforms,
     )
 
-# STORY-118 (King Yip Finding 3, ACCEPT AS DEBT per Dumbledore): this module
+# this module
 # reads/writes TWO independent status-like attributes on the SAME
 # CampaignsTable item — `status` (the campaign state machine, owned by
 # resolve_core.campaign / Processor / Reconciliation) and `campaignStatus`
-# (the STORY-114 ticketing lock, owned exclusively by handle_create_tickets
+# (the ticketing lock, owned exclusively by handle_create_tickets
 # below). They are NOT the same concept and must never be conflated. See
 # resolve_core.constants.CAMPAIGN_STATE_FIELD / TICKETING_LOCK_FIELD for the
 # full writeup. Do not rename or merge either attribute — see tracker.
@@ -168,8 +168,7 @@ def _format_campaign(item: dict) -> dict:
         "deadline": item.get("startTime", ""),
         "actionability": item.get("actionability", ""),
         # `status` — CAMPAIGN STATE MACHINE (ACTIVE/COMPLETED/PARTIAL/FILTERED).
-        # See resolve_core.constants.CAMPAIGN_STATE_FIELD (STORY-118 / King
-        # Finding 3). Do NOT confuse with `campaignStatus` below.
+        # See resolve_core.constants.CAMPAIGN_STATE_FIELD. Do NOT confuse with `campaignStatus` below.
         "status": (item.get(CAMPAIGN_STATE_FIELD, "active") or "active").lower(),
         "hasResources": item.get("campaignType") == "resource-level",
         "totalResources": total,
@@ -178,18 +177,17 @@ def _format_campaign(item: dict) -> dict:
         "ticketsClosedResources": int(item.get("ticketsClosed", 0) or 0),
         "affectedAccount": item.get("affectedAccount", ""),
         "createdAt": item.get("createdAt", ""),
-        # `campaignStatus` — STORY-114 TICKETING LOCK state
+        # `campaignStatus` — TICKETING LOCK state
         # (TICKETING_IN_PROGRESS/TICKETED/TICKETING_FAILED), unrelated to the
         # `status` field above. Deliberately surfaced under a different API
         # response key ("ticketingStatus", not "status") so this same naming
         # collision doesn't leak into the dashboard contract. See
-        # resolve_core.constants.TICKETING_LOCK_FIELD (STORY-118 / King
-        # Finding 3) — accepted as tech debt, do not rename.
+        # resolve_core.constants.TICKETING_LOCK_FIELD — accepted as tech debt, do not rename.
         "ticketingStatus": item.get(TICKETING_LOCK_FIELD),
     }
 
 
-# STORY-136: platform resolution moved to the shared seam
+# platform resolution moved to the shared seam
 # (resolve_core.config_schema.resolve_platforms / operative_platform).
 # The former local _get_active_platform reader was retired; call-sites now
 # call operative_platform(resolve_platforms(_config_table())) directly.
@@ -218,7 +216,7 @@ def _format_resource(item: dict, platform: str | None = None) -> dict:
         "lastUpdated": item.get("lastUpdatedTime", ""),
     }
 
-    # Include per-platform tickets map if present (STORY-111)
+    # Include per-platform tickets map if present
     tickets_map = item.get("tickets")
     if isinstance(tickets_map, dict) and tickets_map:
         result["tickets"] = tickets_map
@@ -296,7 +294,7 @@ def handle_campaign_detail(event, context):
 
 
 # ===================================================================
-# Campaign Grouping (STORY-074)
+# Campaign Grouping
 # ===================================================================
 
 _VALID_GROUP_STRATEGIES = ("per-account", "per-tag-value", "single")
@@ -337,7 +335,7 @@ def handle_group_preview(event, context):
         return _error(400, "INVALID_PARAM",
                       f"strategy must be one of: {', '.join(_VALID_GROUP_STRATEGIES)}")
 
-    # Validate tagKey requirement and format (SEC-074-01)
+    # Validate tagKey requirement and format
     if strategy == "per-tag-value":
         if not tag_key:
             return _error(400, "INVALID_PARAM", "tagKey is required for per-tag-value strategy.")
@@ -426,9 +424,9 @@ def handle_create_tickets(event, context):
         return _error(404, "NOT_FOUND", f"Campaign '{campaign_id}' not found.")
 
     # Idempotency guard: reject if ticketing is actively in progress (non-stale lock)
-    #
-    # STORY-118 (King Yip Finding 3): this checks `campaignStatus`
-    # (TICKETING_LOCK_FIELD) — the STORY-114 ticketing lock — NOT `status`
+
+    # this checks `campaignStatus`
+    # (TICKETING_LOCK_FIELD) — the ticketing lock — NOT `status`
     # (CAMPAIGN_STATE_FIELD), the campaign state machine written by
     # resolve_core.campaign / Processor / Reconciliation. The two are
     # unrelated despite the similar names; see resolve_core/constants.py.
@@ -508,18 +506,18 @@ def handle_create_tickets(event, context):
     except ValueError as e:
         return _error(400, "GROUPING_ERROR", str(e))
 
-    # Acquire ticketing lock — branched ConditionExpression (Snape pre-impl review):
+    # Acquire ticketing lock — branched ConditionExpression:
     #   Normal path: reject if another request holds an active lock
     #   Stale override path: compare-and-swap confirms stale value unchanged
-    #
-    # STORY-118 (King Yip Finding 3, ACCEPT AS DEBT): the attribute name here
+
+    # the attribute name here
     # is `campaignStatus` (TICKETING_LOCK_FIELD), NOT `status`
     # (CAMPAIGN_STATE_FIELD, the campaign state machine field owned by
     # resolve_core.campaign). They coexist on the same CampaignsTable item
     # but track unrelated concerns. Do not rename either — see
     # resolve_core/constants.py for the full explanation. The f-strings below
     # produce byte-identical expression text to the literal "campaignStatus"
-    # used prior to STORY-118; only the source-of-truth moved to a named
+    # used previously; only the source-of-truth moved to a named
     # constant.
     lock_time = _now_iso()
     try:
@@ -701,8 +699,8 @@ def handle_create_tickets(event, context):
 
     finally:
         # ALWAYS release the lock with a terminal state + grouping metadata
-        #
-        # STORY-118 (King Yip Finding 3): writes `campaignStatus`
+
+        # writes `campaignStatus`
         # (TICKETING_LOCK_FIELD) only. The unrelated `status` state-machine
         # field (CAMPAIGN_STATE_FIELD, owned by resolve_core.campaign) is
         # never touched by the ticketing lock lifecycle — this finally block
@@ -785,7 +783,7 @@ def _build_routing_cache(config_table, groups: list) -> dict:
 
 
 # ===================================================================
-# Config Summary Helpers (STORY-100)
+# Config Summary Helpers
 # ===================================================================
 
 def _derive_setup_complete(jira_item, snow_item, routing_item, dispatch_item) -> bool:
@@ -834,7 +832,7 @@ def handle_config_summary(event, context):
     """GET /api/config/summary — aggregated configuration status.
 
     Returns a single response containing all configuration state needed
-    by the dashboard summary page (STORY-095). Each DynamoDB read is
+    by the dashboard summary page. Each DynamoDB read is
     independently wrapped in try/except — a failure on any single item
     degrades that section to safe defaults without failing the request.
     """
@@ -842,18 +840,18 @@ def handle_config_summary(event, context):
 
     # --- Existing reads ---
 
-    # ITSM platform selection (STORY-055: defaults to "jira" if missing)
+    # ITSM platform selection
     try:
         platform_item = config.get_item(Key={"pk": "ITSM_PLATFORM"}).get("Item")
     except ClientError:
         platform_item = None
     platform = (platform_item.get("platform") if platform_item else None) or "jira"
 
-    # STORY-136 (AC-136.3): authoritative platforms array sourced from the same
+    # authoritative platforms array sourced from the same
     # INTEGRATIONS_ENABLED store that GET /config/integrations reads, via the
     # shared seam. resolve_platforms never raises and fails safe to ["jira"] on
-    # ClientError (AC-136.8) — so this must NOT be able to 500 the endpoint.
-    # The legacy scalar `platform` above is retained unchanged (AC-136.4).
+    # ClientError — so this must NOT be able to 500 the endpoint.
+    # The legacy scalar `platform` above is retained unchanged.
     platforms = resolve_platforms(config)
 
     # JIRA connection
@@ -885,15 +883,15 @@ def handle_config_summary(event, context):
     except ClientError:
         account_mapping_count = 0
 
-    # STORY-132: credentialsConfigured reflects onboarding state, NOT the mere
+    # credentialsConfigured reflects onboarding state, NOT the mere
     # existence of the auto-generated Secrets Manager secret resource (which CDK
     # creates unconditionally at deploy — core_stack.py:256-259). It is true only
     # when a JIRA_CONNECTION item exists AND that connection has been validated
-    # (BRD Q-23 / §14.1: "connected" == passed Test Connection). Reuses jira_item
+    # ("connected" == passed Test Connection). Reuses jira_item
     # already fetched above; adds no AWS call and no IAM surface.
     credentials_configured = bool(jira_item and jira_item.get("validated") is True)
 
-    # --- New reads (STORY-100) ---
+    # --- New reads ---
 
     # ServiceNow connection
     # SECURITY: Only extract allowlisted fields from SNOW_CONNECTION.
@@ -947,11 +945,11 @@ def handle_config_summary(event, context):
             "validated": jira_item.get("validated", False) if jira_item else False,
             "validatedAt": jira_item.get("validated_at", "") if jira_item else "",
             "credentialsConfigured": credentials_configured,
-            # STORY-100: JIRA validated user email
+            # JIRA validated user email
             "validatedUserEmail": jira_item.get("validated_user_email", "") if jira_item else "",
         },
-        # STORY-100: ServiceNow connection status
-        # SECURITY: Allowlist extraction only — see SEC-100-M1.
+        # ServiceNow connection status
+        # SECURITY: Allowlist extraction only — see the security note.
         "servicenow": {
             "instanceUrl": snow_item.get("instance_url", "") if snow_item else "",
             "validated": snow_item.get("validated", False) if snow_item else False,
@@ -963,26 +961,26 @@ def handle_config_summary(event, context):
             "snowAssignmentGroupId": routing_item.get("snow_assignment_group_id", "") if routing_item else "",
             "snowRecordType": routing_item.get("snow_record_type", "") if routing_item else "",
             "accountMappingCount": account_mapping_count,
-            # STORY-100: Tag routing status
+            # Tag routing status
             "tagRouting": {
                 "enabled": (strategy_item.get("mode") == "tag") if strategy_item else False,
                 "tagKey": strategy_item.get("tag_key", "") if strategy_item else "",
-                # STORY-124 (RT-02): additive sibling — surfaces the persisted
+                # additive sibling — surfaces the persisted
                 # tag source (resource / account / both) so the wizard + modal
                 # selection round-trips truthfully. Absent/empty -> "account",
-                # matching the engine's SR-018-06 default. Does NOT alter the
-                # STORY-113 enabled/tagKey shape.
+                # matching the engine's default. Does NOT alter the
+                # the enabled/tagKey shape.
                 "tagSource": strategy_item.get("tag_source", "account") if strategy_item else "account",
             },
         },
         "dispatch": {
             "mode": dispatch_item.get("mode", "") if dispatch_item else "",
-            # STORY-100: Dispatch window detail
+            # Dispatch window detail
             "actionabilityFilter": dispatch_item.get("actionability_filter", "") if dispatch_item else "",
             "customRuleCount": custom_rule_count,
             "enabledRuleCount": enabled_rule_count,
         },
-        # STORY-100: System info
+        # System info
         "system": {
             "setupComplete": _derive_setup_complete(jira_item, snow_item, routing_item, dispatch_item),
             "telemetryConsent": telemetry_item.get("consent", False) if telemetry_item else False,
@@ -1530,7 +1528,7 @@ def handle_generate_events(event, context):
 
 
 # ===================================================================
-# PUT /api/config/platform — Switch active ITSM platform (STORY-055)
+# PUT /api/config/platform — Switch active ITSM platform
 # ===================================================================
 
 _VALID_PLATFORMS = frozenset({"jira", "servicenow"})
@@ -1614,7 +1612,7 @@ def handle_platform_switch(event, context):
 
 
 # ===================================================================
-# Setup Timer Handlers (STORY-079: Setup Time Measurement, B-CFG-2)
+# Setup Timer Handlers
 # ===================================================================
 
 def handle_setup_timer_start(event, context):
@@ -1674,7 +1672,7 @@ def handle_setup_timer_get(event, context):
 
 
 # ===================================================================
-# Telemetry Status Handler (STORY-080: Beta Telemetry)
+# Telemetry Status Handler
 # ===================================================================
 
 def handle_telemetry_status(event, context):
@@ -1691,7 +1689,7 @@ def handle_telemetry_status(event, context):
 
 
 # ===================================================================
-# CMDB Routing Config (STORY-087: B-SNOW-3)
+# CMDB Routing Config
 # ===================================================================
 
 def handle_cmdb_config_get(event, context):
@@ -1739,7 +1737,7 @@ def handle_cmdb_config_save(event, context):
 
 
 # ===================================================================
-# Service-Based Routing Config (STORY-088: S-9)
+# Service-Based Routing Config
 # ===================================================================
 
 def handle_service_routing_get(event, context):
@@ -1799,7 +1797,7 @@ def handle_service_routing_delete(event, context):
 
 
 # ===================================================================
-# GET /api/routing/orphans (STORY-089: Orphan Queue Visibility)
+# GET /api/routing/orphans
 # ===================================================================
 
 def handle_orphan_metrics(event, context):
@@ -1830,7 +1828,7 @@ def handle_orphan_metrics(event, context):
     for aid, data in sorted(orphan_accounts.items(), key=lambda x: x[1]["count"], reverse=True):
         accounts.append({
             "accountId": aid,
-            # STORY-133 (Q4/BR-6/AC-4): this is a per-account count of
+            # this is a per-account count of
             # ResourcesTable rows with routedVia == "default" (a RESOURCE
             # tally, one increment per resource row above), not a ticket
             # count. Renamed from the misleading "ticketCount".
@@ -1855,7 +1853,7 @@ def handle_orphan_metrics(event, context):
         logger.exception("Failed to read routing suggestions")
 
     return _success(200, {
-        # STORY-133 (Q1/Q4/BR-6/AC-4): this endpoint is the per-account
+        # this endpoint is the per-account
         # RESOURCE breakdown for the "which accounts to map" workflow — it is
         # NOT the headline orphan count. The headline TICKET count is served by
         # GET /api/config/routing/orphan-status (orphan_handlers.handle_orphan_status),

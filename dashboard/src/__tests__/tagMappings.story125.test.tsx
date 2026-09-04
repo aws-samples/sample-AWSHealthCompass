@@ -1,11 +1,8 @@
 /**
- * STORY-125 (RT-03) — Vitest coverage for the shared tag-mapping LOGIC module
+ * Vitest coverage for the shared tag-mapping LOGIC module
  * (`dashboard/src/components/tagMappings.ts`): the single, un-forked
  * persistence + validation implementation shared by the wizard and the
  * RoutingEditModal.
- *
- * Source of truth: 01_hermione_story.md (AC-2/AC-4/AC-5/AC-6),
- * 04_snape_security.md (SR-125-4/9/15), 10_harry_code.md, 12_luna_interface_validation.md.
  *
  * Coverage:
  *   persistTagMappings — DELETE-first then single upsert POST; 404-on-DELETE is
@@ -15,11 +12,11 @@
  *     {mappings:[{tagValue,jiraProject,jiraIssueType}]} the backend accepts;
  *     tag value URL-encoded on the DELETE path.
  *   validateTagValueClient / validateIssueTypeClient — advisory mirrors of the
- *     server gate (V1 empty, V4 length 256, V5 control chars); SR-125-9 the
+ *     server gate (V1 empty, V4 length 256, V5 control chars); the
  *     client is UX-only (mirrors, not the authority).
  *   getUpsertRows — only 'new'/'edited' rows go on the wire (unchanged omitted).
  *   hasTagMappingClientErrors — blocks save on empty/invalid/oversized rows.
- *   MAX_TAG_VALUE_LEN mirrors the backend constant (256) exactly (SR-125-15).
+ *   MAX_TAG_VALUE_LEN mirrors the backend constant (256) exactly.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -50,10 +47,10 @@ function callsTo(path: string, method?: string) {
 beforeEach(() => vi.clearAllMocks());
 
 // ===========================================================================
-// persistTagMappings — save wiring (AC-2 / AC-5)
+// persistTagMappings — save wiring
 // ===========================================================================
 
-describe('STORY-125 persistTagMappings — save wiring', () => {
+describe('persistTagMappings — save wiring', () => {
   it('POSTs the {mappings:[{tagValue,jiraProject,jiraIssueType}]} shape to /config/routing/tags', async () => {
     mockApiFetch.mockResolvedValue({ created: 2, updated: 0, validationErrors: [] });
     const rows = [
@@ -75,7 +72,7 @@ describe('STORY-125 persistTagMappings — save wiring', () => {
     expect(result.transportError).toBeUndefined();
   });
 
-  it('surfaces the honest {created,updated,validationErrors} triad verbatim from the POST body (RT-14)', async () => {
+  it('surfaces the honest {created,updated,validationErrors} triad verbatim from the POST body', async () => {
     mockApiFetch.mockResolvedValue({
       created: 1,
       updated: 1,
@@ -91,7 +88,7 @@ describe('STORY-125 persistTagMappings — save wiring', () => {
     expect(result.transportError).toBeUndefined();
   });
 
-  it('runs DELETEs FIRST then a single upsert POST (AD-3 rename overlap window eliminated)', async () => {
+  it('runs DELETEs FIRST then a single upsert POST (rename overlap window eliminated)', async () => {
     const order: string[] = [];
     mockApiFetch.mockImplementation(async (path: string, opts?: any) => {
       order.push(`${(opts?.method) ?? 'GET'} ${path}`);
@@ -149,7 +146,7 @@ describe('STORY-125 persistTagMappings — save wiring', () => {
     expect(result.updated).toBe(0);
   });
 
-  it('skips the POST entirely when there are no upsert rows (NOTE-D empty-skip; deletes only)', async () => {
+  it('skips the POST entirely when there are no upsert rows (empty-skip; deletes only)', async () => {
     mockApiFetch.mockResolvedValue({});
     const result = await persistTagMappings([], ['only-a-delete']);
     expect(callsTo('/config/routing/tags', 'POST')).toHaveLength(0);
@@ -159,10 +156,10 @@ describe('STORY-125 persistTagMappings — save wiring', () => {
 });
 
 // ===========================================================================
-// Client-side validators (advisory mirror of server gate — SR-125-9)
+// Client-side validators (advisory mirror of server gate)
 // ===========================================================================
 
-describe('STORY-125 client validators (advisory mirror of SR-125-1/2)', () => {
+describe('client validators (advisory mirror of server gate)', () => {
   it('MAX_TAG_VALUE_LEN mirrors the backend _MAX_TAG_VALUE_LEN (256)', () => {
     expect(MAX_TAG_VALUE_LEN).toBe(256);
   });
@@ -189,7 +186,7 @@ describe('STORY-125 client validators (advisory mirror of SR-125-1/2)', () => {
     }
   });
 
-  it('validateIssueTypeClient — length + control chars (mirrors SR-125-14)', () => {
+  it('validateIssueTypeClient — length + control chars', () => {
     expect(validateIssueTypeClient('Task')).toBeNull();
     expect(validateIssueTypeClient('T'.repeat(129))).toMatch(/too long/i);
     expect(validateIssueTypeClient('Ta\nsk')).toMatch(/line breaks or control/i);
@@ -200,7 +197,7 @@ describe('STORY-125 client validators (advisory mirror of SR-125-1/2)', () => {
 // getUpsertRows / hasTagMappingClientErrors — reconciliation helpers
 // ===========================================================================
 
-describe('STORY-125 reconciliation helpers', () => {
+describe('reconciliation helpers', () => {
   const rows: TagMappingRow[] = [
     { tagValue: 'p', jiraProject: 'A', jiraIssueType: 'Task', rowStatus: 'persisted' },
     { tagValue: 'n', jiraProject: 'B', jiraIssueType: 'Task', rowStatus: 'new' },

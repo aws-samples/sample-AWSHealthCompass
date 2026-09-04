@@ -43,13 +43,11 @@ class CoreStack(cdk.Stack):
                          **kwargs)
 
         # ---------------------------------------------------------------
-        # Ops Alert Email — required CDK context parameter (STORY-121, TR-3)
+        # Ops Alert Email — required CDK context parameter
         # Fail-fast at synth time: a topic with no subscriber reproduces the
-        # exact "alarm fires, nobody told" state this story exists to close.
-        # No placeholder/default is offered by design (see 03_dumbledore_design.md
-        # Section 3). Whole-stack synth failure is the approved posture
-        # (04_snape_security.md, sign-off on Open Item 2) — fail-closed, not
-        # fail-open.
+        # exact "alarm fires, nobody told" state this guard exists to close.
+        # No placeholder/default is offered by design. Whole-stack synth
+        # failure is the approved posture — fail-closed, not fail-open.
         # ---------------------------------------------------------------
         self.ops_alert_email = self.node.try_get_context("ops_alert_email")
         if not self.ops_alert_email:
@@ -112,7 +110,7 @@ class CoreStack(cdk.Stack):
 
         # ---------------------------------------------------------------
         # SQS Ingestion Queue + DLQ
-        # IMPL-SEC-01: SQS_MANAGED encryption required (design only had enforce_ssl)
+        # SQS_MANAGED encryption required.
         # ---------------------------------------------------------------
         self.ingestion_dlq = sqs.Queue(
             self, "IngestionDLQ",
@@ -135,7 +133,7 @@ class CoreStack(cdk.Stack):
         )
 
         # Cross-region resource policy: allow EventBridge from us-west-2.
-        # IMPL-SEC-002-01: ArnEquals with exact rule name + SourceAccount.
+        # ArnEquals with exact rule name + SourceAccount.
         from stacks.event_capture_stack import HEALTH_EVENT_RULE_NAME
         self.ingestion_queue.add_to_resource_policy(iam.PolicyStatement(
             principals=[iam.ServicePrincipal("events.amazonaws.com")],
@@ -172,7 +170,7 @@ class CoreStack(cdk.Stack):
 
         # ---------------------------------------------------------------
         # SNS Integration Topic
-        # IMPL-SEC-02: KMS encryption key required (design only had enforce_ssl)
+        # KMS encryption key required.
         # ---------------------------------------------------------------
         self.sns_key = kms.Key(
             self, "SnsEncryptionKey",
@@ -180,7 +178,7 @@ class CoreStack(cdk.Stack):
             enable_key_rotation=True,
         )
 
-        # IMPL-SEC-003-01: SQS service principal must decrypt SNS messages
+        # SQS service principal must decrypt SNS messages
         # for SNS → SQS subscription delivery. Without this, messages silently vanish.
         self.sns_key.grant_decrypt(iam.ServicePrincipal("sqs.amazonaws.com"))
 
@@ -193,17 +191,16 @@ class CoreStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # SNS Ops Alerts Topic (STORY-121, TR-1 / TR-3 / TR-4 / TR-9 / TR-13)
+        # SNS Ops Alerts Topic
         # Dedicated notification target for CloudWatch alarms — separate from
         # self.integration_topic (the business-event fan-out topic, which this
-        # story does not touch). Reuse this topic for all future us-east-1
-        # alarm actions — do not create a second ops topic (TR-12).
+        # change does not touch). Reuse this topic for all future us-east-1
+        # alarm actions — do not create a second ops topic.
         #
         # Encryption: AWS-managed alias/aws/sns key, not a dedicated CMK.
         # This topic has no SQS subscriber and is low-volume (alarm state
         # transitions only), so the cross-service decrypt-grant need that
         # justifies self.sns_key for integration_topic does not apply here.
-        # Approved by Snape (04_snape_security.md, Open Item 1).
         # ---------------------------------------------------------------
         self.ops_alerts_topic = sns.Topic(
             self, "OpsAlertsTopic",
@@ -216,16 +213,15 @@ class CoreStack(cdk.Stack):
             sns_subs.EmailSubscription(self.ops_alert_email)
         )
 
-        # TR-13 (mandatory, Snape Finding 1/1b — CRITICAL): CDK's
-        # add_alarm_action(cw_actions.SnsAction(...)) does NOT automatically
+        # CDK's add_alarm_action(cw_actions.SnsAction(...)) does NOT automatically
         # grant CloudWatch permission to publish to this topic — verified by
-        # Snape via CDK source inspection + isolated synth test. Without this
+        # CDK source inspection + isolated synth test. Without this
         # explicit statement, alarms detect correctly but notifications are
-        # silently denied (reproduces the AC4/AC6-forbidden "detect but don't
+        # silently denied (reproduces the forbidden "detect but don't
         # notify" state). Do NOT replace this with
         # ops_alerts_topic.grant_publish(iam.ServicePrincipal("cloudwatch.amazonaws.com"))
         # — that helper omits the aws:SourceAccount condition and is a
-        # cross-account confused-deputy vulnerability (Finding 1b): any AWS
+        # cross-account confused-deputy vulnerability: any AWS
         # account that learns this topic's ARN (e.g. via the CfnOutput below)
         # could point their own CloudWatch alarms at it and publish spoofed
         # notifications. This statement must be added once, immediately after
@@ -243,7 +239,7 @@ class CoreStack(cdk.Stack):
 
         # ---------------------------------------------------------------
         # S3 Payload Offload Bucket
-        # IMPL-SEC-03: KMS_MANAGED encryption (design had S3_MANAGED)
+        # KMS_MANAGED encryption.
         # ---------------------------------------------------------------
         self.payload_bucket = s3.Bucket(
             self, "PayloadBucket",
@@ -266,7 +262,7 @@ class CoreStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # Lambda Layer (empty shell — populated by STORY-006)
+        # Lambda Layer (empty shell — populated later)
         # ---------------------------------------------------------------
         self.shared_layer = lambda_.LayerVersion(
             self, "CompassCoreLayer",
@@ -285,8 +281,8 @@ class CoreStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # Processor Lambda (stub — business logic added in STORY-011)
-        # SEC-7: NO Secrets Manager access, NO secret values in env vars
+        # Processor Lambda (stub — business logic added later)
+        # NO Secrets Manager access, NO secret values in env vars
         # ---------------------------------------------------------------
         self.processor_fn = lambda_.Function(
             self, "Processor",
@@ -317,7 +313,7 @@ class CoreStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # IAM — least privilege via CDK grant_* methods (IMPL-SEC-13)
+        # IAM — least privilege via CDK grant_* methods
         # ---------------------------------------------------------------
         self.campaigns_table.grant_read_write_data(self.processor_fn)
         self.resources_table.grant_read_write_data(self.processor_fn)
@@ -338,7 +334,7 @@ class CoreStack(cdk.Stack):
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
             alarm_description="Messages in Compass ingestion DLQ — failed event processing",
         )
-        # TR-5 (STORY-121): notification action appended, existing alarm
+        # notification action appended, existing alarm
         # block above is unmodified.
         ingestion_dlq_alarm.add_alarm_action(cw_actions.SnsAction(self.ops_alerts_topic))
 
@@ -350,12 +346,12 @@ class CoreStack(cdk.Stack):
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
             alarm_description="Compass Processor Lambda sustained errors",
         )
-        # TR-5 (STORY-121): notification action appended, existing alarm
+        # notification action appended, existing alarm
         # block above is unmodified.
         processor_error_alarm.add_alarm_action(cw_actions.SnsAction(self.ops_alerts_topic))
 
         # ---------------------------------------------------------------
-        # Dashboard Hosting — S3 + CloudFront (STORY-039, BRD A-CFG-6)
+        # Dashboard Hosting — S3 + CloudFront
         # ---------------------------------------------------------------
         self.dashboard_bucket = s3.Bucket(
             self, "DashboardBucket",
@@ -372,7 +368,6 @@ class CoreStack(cdk.Stack):
         )
         self.dashboard_bucket.grant_read(oai)
 
-        # STORY-131 AC-15a fix (Option B, per 08_dumbledore_ac15a_fix.md §3.1):
         # grant_read alone grants object-level s3:GetObject on bucket/* but NOT
         # bucket-level s3:ListBucket. Without ListBucket, S3 returns 403
         # (Access Denied) for a MISSING key, which the (now-removed) 403->200
@@ -392,14 +387,14 @@ class CoreStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # WAFv2 — CLOUDFRONT WebACL for the dashboard distribution (STORY-131)
-        # DD-2: created HERE in CoreStack (NOT ApiStack) to avoid a circular
+        # WAFv2 — CLOUDFRONT WebACL for the dashboard distribution
+        # Created HERE in CoreStack (NOT ApiStack) to avoid a circular
         # stack dependency — the Distribution is a CoreStack resource and
         # ApiStack already depends on CoreStack. Attached at Distribution
         # construction via web_acl_id below. CLOUDFRONT scope requires the
         # WebACL live in us-east-1 (CoreStack is us-east-1).
-        # DD-3 rule set; Option A (AWS-default 403, no custom response) per DD-6.
-        # Deploy-time knobs read like elsewhere (§3.4):
+        # Shared rule set; Option A (AWS-default 403, no custom response).
+        # Deploy-time knobs:
         #   -c waf_rate_limit=<n>   default 2000 per-IP / 300s window
         #   -c waf_mode=block|count default 'block' (enforcing).
         # ---------------------------------------------------------------
@@ -424,7 +419,7 @@ class CoreStack(cdk.Stack):
 
         self.dashboard_distribution = cloudfront.Distribution(
             self, "DashboardDistribution",
-            web_acl_id=self.cloudfront_acl.attr_arn,  # STORY-131 (DD-2/TR-3): full CLOUDFRONT WebACL ARN
+            web_acl_id=self.cloudfront_acl.attr_arn,  # full CLOUDFRONT WebACL ARN
             default_behavior=cloudfront.BehaviorOptions(
                 origin=origins.S3Origin(
                     self.dashboard_bucket,
@@ -435,11 +430,10 @@ class CoreStack(cdk.Stack):
             ),
             default_root_object="index.html",
             error_responses=[
-                # STORY-131 AC-15a fix (Option B, per 08_dumbledore_ac15a_fix.md §3.2):
                 # The 403->200 /index.html remap was REMOVED. CloudFront applies
                 # CustomErrorResponses keyed on the response STATUS CODE and DID
                 # catch the WAF-generated edge 403, masking blocked attacks as
-                # 200+SPA (empirical AC-15a FAIL). With the 403 map gone, a
+                # 200+SPA (empirically observed). With the 403 map gone, a
                 # WAF-edge block reaches the client as a true 403. The SPA
                 # deep-link fallback now runs via 404->200 (S3 returns 404 for
                 # missing keys because the OAI holds s3:ListBucket, granted above).
@@ -454,7 +448,7 @@ class CoreStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # WAF logging for the CloudFront WebACL (STORY-131, DD-9/TR-7).
+        # WAF logging for the CloudFront WebACL.
         # Name MUST start with 'aws-waf-logs-'. Credential headers redacted.
         # ---------------------------------------------------------------
         cf_waf_log_group = logs.LogGroup(
@@ -464,10 +458,10 @@ class CoreStack(cdk.Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
-        # Snape F-2 (MEDIUM, MANDATORY): CfnLoggingConfiguration does NOT create
+        # CfnLoggingConfiguration does NOT create
         # the CloudWatch Logs resource policy authorizing WAF's vended-log
-        # delivery principal. Without it, delivery is silently denied (AC-6
-        # fails). Provision it explicitly, scoped to this account + region.
+        # delivery principal. Without it, delivery is silently denied.
+        # Provision it explicitly, scoped to this account + region.
         cf_waf_log_policy = logs.ResourcePolicy(
             self, "CloudFrontWafLogResourcePolicy",
             resource_policy_name="compass-waf-cloudfront-log-delivery",

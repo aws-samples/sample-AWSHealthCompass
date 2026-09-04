@@ -14,9 +14,6 @@ with ``resolvedBy="error"``.
 
 Consumers: Processor Lambda (step k), Reconciliation Lambda.
 Dependencies: Python stdlib only (no boto3, no third-party packages).
-
-Design reference: STORY-018 / 03_dumbledore_design.md §3.
-BRD reference: A-JIRA-2, A-JIRA-3, B-ROUTE-1, B-ROUTE-2, BRD §14.3, C-9.
 """
 
 from __future__ import annotations
@@ -51,7 +48,7 @@ __all__ = [
 def extract_affected_account(detail: dict, envelope: dict) -> Optional[str]:
     """Extract the affected account ID from a Health event.
 
-    Resolution order per BRD C-9:
+    Resolution order:
     1. ``detail.affectedAccount`` — preferred for org-level events.
     2. ``envelope.account`` — fallback for account-level events.
     3. ``None`` — triggers error routing.
@@ -78,7 +75,7 @@ def extract_affected_account(detail: dict, envelope: dict) -> Optional[str]:
 
 
 # ===================================================================
-# Tag Value Extraction (STORY-018)
+# Tag Value Extraction
 # ===================================================================
 
 
@@ -103,7 +100,7 @@ def extract_tag_value(
 
     Returns:
         Tag value string, or ``None`` if the tag is absent, empty,
-        or not a string (SR-018-04 defense-in-depth).
+        or not a string (defense-in-depth).
     """
     tag_key = strategy.get("tag_key")
     if not isinstance(tag_key, str) or not tag_key.strip():
@@ -111,7 +108,7 @@ def extract_tag_value(
 
     tag_source = strategy.get("tag_source", "account")
     if tag_source not in _VALID_TAG_SOURCES:
-        # SR-018-06: unknown tag_source treated as "account" with warning
+        # unknown tag_source treated as "account" with warning
         logger.warning(
             "Unknown tag_source in ROUTING_STRATEGY — "
             "error_code=ROUTING_STRATEGY_INVALID_TAG_SOURCE "
@@ -154,7 +151,7 @@ def _extract_from_account(tag_key: str, account_tags: dict) -> Optional[str]:
 def _validate_tag_value(value: Any) -> Optional[str]:
     """Validate and normalize a raw tag value.
 
-    SR-018-04: defense-in-depth type check.
+    defense-in-depth type check.
     AD-3: empty/whitespace-only values treated as missing.
     """
     if not isinstance(value, str):
@@ -164,7 +161,7 @@ def _validate_tag_value(value: Any) -> Optional[str]:
 
 
 # ===================================================================
-# Platform Target Extraction (STORY-093)
+# Platform Target Extraction
 # ===================================================================
 
 
@@ -248,7 +245,7 @@ def resolve_account_routing(
             :func:`extract_affected_account`, or ``None``.
         config_cache: Pre-loaded ConfigTable items keyed by ``pk``.
         service: AWS service name from the Health event detail
-            (used for service-based routing fallback, STORY-088/S-9).
+            (used for service-based routing fallback).
 
     Returns:
         Routing result dict with keys: ``resolvedProject``,
@@ -277,7 +274,7 @@ def resolve_account_routing(
                 affected_account,
             )
 
-    # Step 2.5 — Service-based routing (STORY-088, S-9)
+    # Step 2.5 — Service-based routing
     if isinstance(service, str) and service.strip():
         service_key = f"SERVICE_ROUTING#{service.upper()}"
         service_item = config_cache.get(service_key)
@@ -323,7 +320,7 @@ def resolve_account_routing(
 
 
 # ===================================================================
-# Tag Routing (Step 1 of failover chain — STORY-018)
+# Tag Routing (Step 1 of failover chain)
 # ===================================================================
 
 
@@ -339,13 +336,13 @@ def _resolve_tag_routing(
     to signal the orchestrator to fall through to account routing.
 
     The lookup is a Python dict key access on pre-loaded cache data —
-    O(1), no DynamoDB call at routing time (AD-5, SEC-21).
+    O(1), no DynamoDB call at routing time (AD-5).
     """
     tag_value = extract_tag_value(strategy, entities, account_tags)
     if tag_value is None:
         return None
 
-    # Exact-match lookup in pre-loaded cache (AC-7 / SEC-21)
+    # Exact-match lookup in pre-loaded cache
     tag_key = f"TAG_ROUTING#{tag_value}"
     mapping = config_cache.get(tag_key)
     if not isinstance(mapping, dict):
@@ -438,7 +435,7 @@ def resolve_routing(
 
 
 # ===================================================================
-# Routing Attribution — resolvedBy → routedVia mapping (STORY-071/126)
+# Routing Attribution — resolvedBy → routedVia mapping
 # ===================================================================
 
 
@@ -451,11 +448,11 @@ def derive_routed_via(
     ``resolvedBy`` is the engine's in-memory decision vocabulary
     (``tag`` / ``account`` / ``service`` / ``default`` / ``error``).
     ``routedVia`` is the granular value persisted on each ResourcesTable
-    resource row and read by the B-ROUTE-3 coverage metric
+    resource row and read by the routing coverage metric
     (``lambdas/api/coverage_handlers.py``), whose recognized set is
     ``{resourceTag, accountTag, account, service, default}`` (∪ ``error``).
 
-    The critical bridge (STORY-117-class drift guard): the engine emits the
+    The critical bridge (drift guard): the engine emits the
     coarse value ``"tag"``, which is **not** in the coverage reader whitelist.
     This function maps ``"tag"`` to the granular ``resourceTag`` / ``accountTag``
     per ``ROUTING_STRATEGY.tag_source`` so the persisted vocabulary matches the

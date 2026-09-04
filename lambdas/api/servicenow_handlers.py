@@ -86,7 +86,7 @@ def _now_iso() -> str:
 def handle_servicenow_test(event, context):
     """Validate ServiceNow credentials without saving.
 
-    STORY-102: Supports partial credential testing. If clientSecret or password
+    Supports partial credential testing. If clientSecret or password
     are absent from the body, reads existing values from Secrets Manager.
     FINDING-1: SSRF validation enforced on instanceUrl.
     """
@@ -99,7 +99,7 @@ def handle_servicenow_test(event, context):
     if body is None:
         return _error(400, "CFG_INVALID_REQUEST", "Request body must be valid JSON")
 
-    # STORY-102: Detect which credential fields are present
+    # Detect which credential fields are present
     secret_present = (
         "clientSecret" in body
         and body["clientSecret"] is not None
@@ -141,7 +141,7 @@ def handle_servicenow_test(event, context):
     except ValueError as exc:
         return _error(400, "CFG_INVALID_URL", str(exc))
 
-    # STORY-102: Resolve credential values — from body or Secrets Manager
+    # Resolve credential values — from body or Secrets Manager
     if not secret_present or not password_present:
         stored = _read_snow_secret()
         if stored is None:
@@ -192,7 +192,7 @@ def handle_servicenow_test(event, context):
 def handle_servicenow_save(event, context):
     """Save ServiceNow credentials to Secrets Manager + ConfigTable.
 
-    STORY-102: Supports partial credential update.
+    Supports partial credential update.
     - If clientSecret/password absent/null/empty → preserve existing in Secrets Manager.
     - If present with non-empty string → update that credential.
     - instanceUrl, clientId, username are always required.
@@ -201,7 +201,7 @@ def handle_servicenow_save(event, context):
     if body is None:
         return _error(400, "CFG_INVALID_REQUEST", "Request body must be valid JSON")
 
-    # STORY-102: Detect which credential fields are present
+    # Detect which credential fields are present
     secret_present = (
         "clientSecret" in body
         and body["clientSecret"] is not None
@@ -215,7 +215,7 @@ def handle_servicenow_save(event, context):
         and body["password"].strip() != ""
     )
 
-    # Both credentials present → full save (existing behavior, AC-11 backward compat)
+    # Both credentials present → full save (existing behavior, backward compat)
     if secret_present and password_present:
         # Use original full validation
         errors = _validate_snow_input(body)
@@ -292,7 +292,7 @@ def handle_servicenow_save(event, context):
         })
 
     else:
-        # --- STORY-102: Partial update path — preserve some/all credentials ---
+        # --- Partial update path — preserve some/all credentials ---
 
         # Validate always-required fields
         instance_url_raw = body.get("instanceUrl")
@@ -415,7 +415,7 @@ def handle_servicenow_save(event, context):
 def handle_servicenow_get(event, context):
     """Return ServiceNow connection status. Never returns actual secrets.
 
-    STORY-102: Returns credentialsConfigured boolean, clientId, username.
+    Returns credentialsConfigured boolean, clientId, username.
     Removed fake masked values (clientSecret/password "********").
     SEC: No credential values are ever returned — only boolean metadata
     and non-sensitive identifiers.
@@ -427,7 +427,7 @@ def handle_servicenow_get(event, context):
     if not item:
         return _success(200, None)
 
-    # STORY-102: Check if credentials exist in Secrets Manager (boolean only)
+    # Check if credentials exist in Secrets Manager (boolean only)
     credentials_configured = False
     secret_arn = item.get("secret_arn", "")
     if secret_arn:
@@ -678,7 +678,7 @@ def _check_rate_limit():
 def _read_snow_secret() -> dict | None:
     """Read ServiceNow credentials from Secrets Manager. Returns parsed dict or None.
 
-    STORY-102: Used for partial credential updates — reads existing stored
+    Used for partial credential updates — reads existing stored
     credentials so preserved fields can be merged with new values.
     SEC: Credentials are never returned in API responses — only used internally.
     """

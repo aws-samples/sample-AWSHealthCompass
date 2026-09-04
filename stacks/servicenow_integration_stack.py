@@ -102,7 +102,7 @@ class ServiceNowIntegrationStack(cdk.Stack):
         )
 
         # ---------------------------------------------------------------
-        # ServiceNow Integration Lambda (stub — business logic in STORY-059+)
+        # ServiceNow Integration Lambda (stub — business logic added later)
         # Reserved concurrency = 2 for ServiceNow API rate limiting
         # ---------------------------------------------------------------
         self.servicenow_lambda = lambda_.Function(
@@ -157,7 +157,7 @@ class ServiceNowIntegrationStack(cdk.Stack):
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
             alarm_description="Messages in ServiceNow integration DLQ — investigate failed ticket operations",
         )
-        # TR-5 (STORY-121): notification action appended, existing alarm
+        # notification action appended, existing alarm
         # block above is unmodified. ops_alerts_topic is received from
         # CoreStack (same-region pattern already used for integration_topic).
         servicenow_dlq_alarm.add_alarm_action(cw_actions.SnsAction(ops_alerts_topic))

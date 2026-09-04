@@ -33,7 +33,7 @@ export interface OnboardingConfig {
    */
   platform?: 'jira' | 'servicenow';
   /**
-   * Authoritative enabled-platform list (source of truth per STORY-136).
+   * Authoritative enabled-platform list (source of truth).
    * Always present and non-empty on a live 200. Consume via
    * `resolvePlatformContext(config)` / membership tests — never the scalar.
    */
@@ -64,7 +64,7 @@ export interface OnboardingConfig {
     tagRouting?: {
       enabled: boolean;
       tagKey: string;
-      tagSource?: string; // STORY-124: resource | account | both (additive)
+      tagSource?: string; // resource | account | both (additive)
     };
   };
   dispatch?: {
@@ -74,7 +74,7 @@ export interface OnboardingConfig {
   setupComplete?: boolean;
 }
 
-// STORY-133: headline orphan signal is TICKET-grained (sync-backed count from
+// Headline orphan signal is TICKET-grained (sync-backed count from
 // GET /api/config/routing/orphan-status), gated by the backend threshold — the
 // UI must NOT recompute >10. Distinct field names from OrphanResourceBreakdown
 // are the type-level guardrail that keeps the resource/ticket units from drifting.
@@ -84,7 +84,7 @@ export interface OrphanStatus {
   threshold: number;          // 10 (for copy interpolation only; never a client-side gate)
 }
 
-// STORY-133: GET /api/routing/orphans is a per-account RESOURCE breakdown for the
+// GET /api/routing/orphans is a per-account RESOURCE breakdown for the
 // "add mappings" workflow — NOT the headline count. Fields state the resource unit.
 export interface OrphanResourceBreakdown {
   defaultRoutedResourceCount: number;             // RESOURCES with routedVia == "default"

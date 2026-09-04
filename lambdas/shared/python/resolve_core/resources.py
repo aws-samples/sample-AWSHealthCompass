@@ -44,7 +44,7 @@ _ACCOUNT_ID_PATTERN = re.compile(r"\d{12}")
 
 _VALID_HEALTH_STATUSES = frozenset({"PENDING", "RESOLVED", "IMPAIRED", "UNKNOWN"})
 
-# SECURITY (IMPL-014-06 / SR-12): Hardcoded UpdateExpression for upserts.
+# SECURITY (IMPL-014-06): Hardcoded UpdateExpression for upserts.
 # MUST NOT be constructed at runtime. Only touches health-owned fields.
 _UPSERT_UPDATE_EXPR = (
     "SET #hs = :hs, #lut = :lut, #ua = :ua"
@@ -56,14 +56,14 @@ _UPSERT_ATTR_NAMES = {
     "#ua": "updatedAt",
 }
 
-# SECURITY (SR-12): Runtime assertion — ticket-owned fields must never
+# SECURITY: Runtime assertion — ticket-owned fields must never
 # appear in the upsert expression.
 _TICKET_FIELDS = frozenset({
     "ticketId", "ticketStatus", "ticketRawStatus", "ticketUrl", "ticketUpdatedAt",
     "tickets",
 })
 
-# SECURITY (SR-12): Explicit check — not assert — so it survives
+# SECURITY: Explicit check — not assert — so it survives
 # Python -O optimization (FINDING-IMPL-015-03).
 for _f in _TICKET_FIELDS:
     if _f in _UPSERT_UPDATE_EXPR:
@@ -240,7 +240,7 @@ def update_routed_via(
     each ``(campaignId, trackingKey)``. This is the single shared writer used by
     both the Processor Lambda (real-time, step k.1) and the Reconciliation
     Lambda (daily Health-API catch-up) so the persisted attribution vocabulary
-    cannot drift between the two paths (STORY-126 / RT-07).
+    cannot drift between the two paths.
 
     Idempotent: the write is a SET on the composite key — re-running writes the
     same value and never creates rows, so the coverage scan-aggregation counts
@@ -272,7 +272,7 @@ def update_routed_via(
         while True:
             resp = resources_table.query(**query_kwargs)
             for item in resp.get("Items", []):
-                # SR-12/SEC-126-2: parameterized expression — never interpolate
+                # parameterized expression — never interpolate
                 # campaign_id, routed_via, or routing_error into the string.
                 update_expr = "SET #rv = :rv, #ua = :ua"
                 attr_names = {"#rv": "routedVia", "#ua": "updatedAt"}
@@ -296,7 +296,7 @@ def update_routed_via(
                 break
             query_kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
     except ClientError as exc:
-        # SEC-126-3/SEC-126-6: log only sanitized identifiers; non-fatal.
+        # log only sanitized identifiers; non-fatal.
         logger.error(
             "Failed to update routedVia — "
             "error_code=PROC_RESOURCE_WRITE_FAILED "
@@ -317,7 +317,7 @@ def _sanitize_log(val: Any) -> str:
 
 
 def _validate_entity_value(entity_value: Any) -> Optional[str]:
-    """Validate and sanitize an entity value (IMPL-014-03 / SR-3, SR-4).
+    """Validate and sanitize an entity value (IMPL-014-03).
 
     Returns sanitized string or None if invalid.
     """
@@ -334,7 +334,7 @@ def _validate_entity_value(entity_value: Any) -> Optional[str]:
 
 
 def _derive_tracking_key(entity_value: str) -> str:
-    """Derive tracking key from entity value (SR-6).
+    """Derive tracking key from entity value.
 
     Falls back to SHA-256 hash if UTF-8 byte length exceeds 1024.
     """
@@ -350,7 +350,7 @@ def _derive_tracking_key(entity_value: str) -> str:
 
 
 def _validate_account_id(account_id: Any) -> Optional[str]:
-    """Validate 12-digit numeric account ID (IMPL-014-04 / SR-5)."""
+    """Validate 12-digit numeric account ID (IMPL-014-04)."""
     if not isinstance(account_id, str):
         return None
     if _ACCOUNT_ID_PATTERN.fullmatch(account_id):
@@ -359,7 +359,7 @@ def _validate_account_id(account_id: Any) -> Optional[str]:
 
 
 def _validate_health_status(status: Any) -> str:
-    """Validate health status enum (IMPL-014-05 / SR-10)."""
+    """Validate health status enum (IMPL-014-05)."""
     if isinstance(status, str) and status in _VALID_HEALTH_STATUSES:
         return status
     logger.info(
@@ -379,7 +379,7 @@ def _extract_region(entity_value: str, fallback_region: str) -> str:
 
 
 def _check_tag_payload_size(tags: dict) -> dict:
-    """Enforce max 10KB total serialized tag payload (IMPL-014-01 / SR-1)."""
+    """Enforce max 10KB total serialized tag payload (IMPL-014-01)."""
     serialized = json.dumps(tags, separators=(",", ":"))
     if len(serialized.encode("utf-8")) <= _MAX_TAG_PAYLOAD_BYTES:
         return tags
@@ -470,7 +470,7 @@ def _build_resource_items(
 
 
 def _batch_write(table: Any, items: List[dict]) -> tuple[int, int]:
-    """Batch write items in groups of 25 with retry (design §4.4.1).
+    """Batch write items in groups of 25 with retry.
 
     Uses table.batch_writer() which handles Python→DynamoDB type
     serialization automatically and retries unprocessed items internally.
@@ -499,7 +499,7 @@ def _batch_write(table: Any, items: List[dict]) -> tuple[int, int]:
 
 
 def _upsert_resource(table: Any, item: dict) -> str:
-    """Conditional PutItem with UpdateItem fallback (design §3.1).
+    """Conditional PutItem with UpdateItem fallback.
 
     Returns: "created", "updated", "skipped", or "failed".
     """
@@ -631,7 +631,7 @@ def _compute_and_update_counts(
 ) -> dict:
     """Query ResourcesTable for absolute counts and update CampaignsTable.
 
-    Uses SET (not ADD) for idempotent counter updates (design §3.3).
+    Uses SET (not ADD) for idempotent counter updates.
     """
     pending = 0
     resolved = 0

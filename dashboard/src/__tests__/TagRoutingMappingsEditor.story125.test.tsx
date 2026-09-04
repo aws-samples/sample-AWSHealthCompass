@@ -1,25 +1,21 @@
 /**
- * STORY-125 (RT-03) — Vitest coverage for the TagRoutingMappingsEditor
+ * Vitest coverage for the TagRoutingMappingsEditor
  * component (`dashboard/src/components/TagRoutingMappingsEditor.tsx`): the
  * controlled add/edit/delete surface used in BOTH the wizard tag-routing step
  * and the RoutingEditModal.
  *
- * Source of truth: 01_hermione_story.md (AC-1/AC-3/AC-4), 02_luna_ux.md (V1–V5),
- * 04_snape_security.md (SR-125-4/12), 08_luna_interface_review.md (GAP-1,
- * NOTE-C/E/F), 12_luna_interface_validation.md.
- *
  * Coverage:
- *   AC-1 gate — renders nothing when tag routing disabled
- *   AC-1 add  — Add mapping appends a 'new' row (tagValue, project, issue type)
+ *   gate   — renders nothing when tag routing disabled
+ *   add    — Add mapping appends a 'new' row (tagValue, project, issue type)
  *   V1/V2/V3/V4/V5 — inline add-row validation (empty value, empty project,
  *                    duplicate, too-long, control chars) block the add
- *   AC-1 edit — editing target on a persisted row flips it to 'edited'; a 'new'
- *               row stays 'new' (drives getUpsertRows on the host)
- *   AC-1 delete — removing a persisted row records it in removedTagValues (DELETE
- *                 on save); removing a brand-new row does NOT (NOTE-E)
- *   AC-4 / SR-125-4 / NOTE-C — per-row backend reason surfaced against its row
- *   SR-125-12 — user tag values and backend reasons render as inert text
- *   AC-3 / NOTE-F — load-error affordance replaces the table and offers Retry
+ *   edit   — editing target on a persisted row flips it to 'edited'; a 'new'
+ *            row stays 'new' (drives getUpsertRows on the host)
+ *   delete — removing a persisted row records it in removedTagValues (DELETE
+ *            on save); removing a brand-new row does NOT
+ *   per-row backend reason surfaced against its row
+ *   user tag values and backend reasons render as inert text
+ *   load-error affordance replaces the table and offers Retry
  *   disabled — controls disabled while a save is in flight
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -90,10 +86,10 @@ const persisted = (v: string, p = 'CLOUDOPS'): TagMappingRow =>
 beforeEach(() => vi.clearAllMocks());
 
 // ===========================================================================
-// AC-1 gate
+// Enable gate
 // ===========================================================================
 
-describe('STORY-125 editor — enable gate (AC-1)', () => {
+describe('editor — enable gate', () => {
   it('renders nothing when tag routing is disabled', () => {
     const { container } = render(<Harness enabled={false} />);
     expect(container.querySelector('[data-testid="add-tag-mapping-row"]')).toBeNull();
@@ -108,10 +104,10 @@ describe('STORY-125 editor — enable gate (AC-1)', () => {
 });
 
 // ===========================================================================
-// AC-1 add + V1–V5 validation
+// Add + V1–V5 validation
 // ===========================================================================
 
-describe('STORY-125 editor — add row + inline validation (AC-1/AC-4, V1–V5)', () => {
+describe('editor — add row + inline validation (V1–V5)', () => {
   it('adds a new row (tagValue, project, issue type) with rowStatus "new"', async () => {
     const user = userEvent.setup();
     render(<Harness />);
@@ -165,9 +161,9 @@ describe('STORY-125 editor — add row + inline validation (AC-1/AC-4, V1–V5)'
     // terminators) removes control chars on type/paste, so a control char can
     // never reach the add handler THROUGH THE UI — pasting "bad\nvalue" yields
     // the sanitized "badvalue". The control-char REJECTION predicate
-    // (validateTagValueClient, SR-125-2 mirror) is exercised deterministically
-    // in tagMappings.story125.test.tsx, and the AUTHORITATIVE server-side gate
-    // (SR-125-2/9) is proven in tests/test_api_tag_routing_validation_story125.py.
+    // (validateTagValueClient) is exercised deterministically
+    // in the tagMappings logic-module suite, and the AUTHORITATIVE server-side
+    // gate is proven in the backend API validation suite.
     // This test documents that the UI field itself cannot carry the payload.
     const user = userEvent.setup();
     render(<Harness />);
@@ -184,10 +180,10 @@ describe('STORY-125 editor — add row + inline validation (AC-1/AC-4, V1–V5)'
 });
 
 // ===========================================================================
-// AC-1 edit
+// Edit
 // ===========================================================================
 
-describe('STORY-125 editor — edit target (AC-1)', () => {
+describe('editor — edit target', () => {
   it('editing a persisted row project flips it to "edited" (joins the upsert set)', async () => {
     const user = userEvent.setup();
     render(<Harness initial={[persisted('platform', 'CLOUDOPS')]} />);
@@ -209,10 +205,10 @@ describe('STORY-125 editor — edit target (AC-1)', () => {
 });
 
 // ===========================================================================
-// AC-1 delete (NOTE-E)
+// Delete
 // ===========================================================================
 
-describe('STORY-125 editor — remove row (AC-1 / NOTE-E)', () => {
+describe('editor — remove row', () => {
   it('removing a PERSISTED row records it in removedTagValues (DELETE on save)', async () => {
     const user = userEvent.setup();
     render(<Harness initial={[persisted('platform'), persisted('data')]} />);
@@ -221,7 +217,7 @@ describe('STORY-125 editor — remove row (AC-1 / NOTE-E)', () => {
     expect(hostRemoved()).toEqual(['platform']);
   });
 
-  it('removing a BRAND-NEW row drops it WITHOUT recording a delete (NOTE-E)', async () => {
+  it('removing a BRAND-NEW row drops it WITHOUT recording a delete', async () => {
     const user = userEvent.setup();
     render(<Harness />);
     await addRow(user, 'ephemeral', 'CLOUDOPS');
@@ -232,11 +228,11 @@ describe('STORY-125 editor — remove row (AC-1 / NOTE-E)', () => {
 });
 
 // ===========================================================================
-// AC-4 / SR-125-4 / SR-125-12 — per-row backend reason + text-only render
+// Per-row backend reason + text-only render
 // ===========================================================================
 
-describe('STORY-125 editor — backend row errors & text-only rendering (SR-125-4/12)', () => {
-  it('surfaces a per-row backend reason against the correct row (NOTE-C)', () => {
+describe('editor — backend row errors & text-only rendering', () => {
+  it('surfaces a per-row backend reason against the correct row', () => {
     render(<Harness
       initial={[persisted('platform', 'BADPROJ')]}
       rowErrors={{ platform: 'Invalid JIRA project' }}
@@ -244,7 +240,7 @@ describe('STORY-125 editor — backend row errors & text-only rendering (SR-125-
     expect(screen.getByText('Invalid JIRA project')).toBeInTheDocument();
   });
 
-  it('renders a hostile tag value as inert TEXT (no HTML injection — SR-125-12)', () => {
+  it('renders a hostile tag value as inert TEXT (no HTML injection)', () => {
     const xss = '<img src=x onerror=alert(1)>';
     const { container } = render(<Harness initial={[persisted(xss)]} />);
     // The literal string is shown; no <img> element is created from user input.
@@ -264,11 +260,11 @@ describe('STORY-125 editor — backend row errors & text-only rendering (SR-125-
 });
 
 // ===========================================================================
-// AC-3 / NOTE-F — load-error affordance & disabled state
+// Load-error affordance & disabled state
 // ===========================================================================
 
-describe('STORY-125 editor — load-error affordance & disabled state (AC-3/NOTE-F)', () => {
-  it('shows a load-error alert with Retry instead of the table (NOTE-F)', async () => {
+describe('editor — load-error affordance & disabled state', () => {
+  it('shows a load-error alert with Retry instead of the table', async () => {
     const user = userEvent.setup();
     const onRetryLoad = vi.fn();
     render(<Harness loadError="boom" onRetryLoad={onRetryLoad} />);

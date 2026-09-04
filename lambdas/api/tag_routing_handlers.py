@@ -1,4 +1,4 @@
-"""Tag routing configuration API handlers (STORY-029).
+"""Tag routing configuration API handlers.
 
 Implements 5 endpoints for tag-based routing:
   POST   /api/config/routing/strategy      — Set routing strategy (account or tag)
@@ -43,14 +43,14 @@ except ImportError:
         _validate_jira_project,
     )
 
-# STORY-137: SNOW format validator (call site only; body unchanged — MUST-140-5).
+# SNOW format validator (call site only; body unchanged).
 try:
     from validators import validate_snow_routing_fields
 except ImportError:
     from lambdas.api.validators import validate_snow_routing_fields
 
-# STORY-136 seam (§2.1): resolve the operative platform. This handler MUST NOT
-# read ITSM_PLATFORM directly or re-derive precedence (Dumbledore §1, §8.2-1).
+# resolve the operative platform. This handler MUST NOT
+# read ITSM_PLATFORM directly or re-derive precedence.
 try:
     from resolve_core.config_schema import operative_platform, resolve_platforms
 except ImportError:
@@ -73,7 +73,7 @@ _VALID_TAG_SOURCES = ("resource", "account", "both")
 _MAX_TAG_KEY_LEN = 128
 
 # ---------------------------------------------------------------------------
-# STORY-125 (SR-125-1/2/3/14/15): server-authoritative validation of the
+# server-authoritative validation of the
 # user-controlled tag VALUE and issue TYPE.
 #
 # The tag value becomes the ``TAG_ROUTING#{value}`` DynamoDB partition-key
@@ -82,24 +82,24 @@ _MAX_TAG_KEY_LEN = 128
 # endpoints are reachable by hand-crafted HTTP — so this validation is
 # authoritative and must behave correctly regardless of any client-side check.
 #
-# Key faithfulness (SR-125-3): the value is validated and REJECTED on failure,
+# Key faithfulness: the value is validated and REJECTED on failure,
 # never silently sanitized/transformed before storage. It is persisted verbatim
 # (after ``.strip()`` only) so it exactly equals what
 # ``resolve_core.routing.extract_tag_value(...)`` produces at routing time
 # (which also only ``.strip()``s). Applying a label/charset transform to the
 # stored key would silently break routing matches for real AWS tag values that
 # contain uppercase, spaces, ``=``, ``:`` or ``/``.
-_MAX_TAG_VALUE_LEN = 256  # SR-125-1/15: authoritative user-facing char bound
+_MAX_TAG_VALUE_LEN = 256  # authoritative user-facing char bound
 _MAX_PK_BYTES = 2048  # DynamoDB hard partition-key byte limit (backstop only)
-_MAX_ISSUE_TYPE_LEN = 128  # SR-125-14: bound the client-controlled issue type
-# SR-125-2: reject C0 controls (incl. \t \n \r), DEL (\x7f) and C1 controls.
+_MAX_ISSUE_TYPE_LEN = 128  # bound the client-controlled issue type
+# reject C0 controls (incl. \t \n \r), DEL (\x7f) and C1 controls.
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
-# SR-125-5: cap sanitized log values (mirrors resolve_core.campaign primitive).
+# cap sanitized log values (mirrors resolve_core.campaign primitive).
 _MAX_LOG_VALUE_LEN = 256
 
 
 def _sanitize_log(val) -> str:
-    """Strip control chars and truncate a value for safe log output (SR-125-5).
+    """Strip control chars and truncate a value for safe log output.
 
     Prevents CloudWatch log-line forgery when a user-controlled value (or a
     ``pk`` embedding one) is logged. Mirrors ``resolve_core.campaign._sanitize_log``.
@@ -112,8 +112,8 @@ def _sanitize_log(val) -> str:
 def _tag_value_rejection(tag_value: str) -> str | None:
     """Return a neutral rejection reason for a tag value, or None if acceptable.
 
-    Enforces SR-125-1 (length) and SR-125-2 (control chars). Does NOT mutate the
-    value — the caller stores it verbatim after ``.strip()`` (SR-125-3).
+    Enforces (length) and (control chars). Does NOT mutate the
+    value — the caller stores it verbatim after ``.strip()``.
     """
     if _CONTROL_CHAR_RE.search(tag_value):
         return "tagValue contains control characters"
@@ -128,12 +128,12 @@ def _tag_value_rejection(tag_value: str) -> str | None:
 
 
 def _issue_type_rejection(issue_type: str) -> str | None:
-    """Return a neutral rejection reason for a JIRA issue type, or None (SR-125-14).
+    """Return a neutral rejection reason for a JIRA issue type, or None.
 
     LOW severity: issue type does not reach the pk/JQL/labels/unsanitized logs
     and is JSON-escaped at ticket-create time. This bound is defense-in-depth
     (prevents item bloat / stray control chars). Issue-type existence validation
-    against JIRA is intentionally NOT done here (follow-on, not RT-03).
+    against JIRA is intentionally NOT done here (follow-on, not).
     """
     if _CONTROL_CHAR_RE.search(issue_type):
         return "jiraIssueType contains control characters"
@@ -223,9 +223,9 @@ def handle_tag_mappings_get(event, context):
             "tagValue": item.get("tag_value", ""),
             "jiraProject": item.get("jira_project", ""),
             "jiraIssueType": item.get("jira_issue_type", "Task"),
-            # STORY-140 (AC-140.5): additive SNOW target keys. Empty-string when
-            # absent, never null (mirrors STORY-137 §3.2 / Luna §6.6). No shape
-            # breakage for existing JIRA consumers (AC-140.6).
+            # additive SNOW target keys. Empty-string when
+            # absent, never null. No shape
+            # breakage for existing JIRA consumers.
             "snowAssignmentGroupId": item.get("snow_assignment_group_id", ""),
             "snowAssignmentGroupName": item.get("snow_assignment_group_name", ""),
             "snowRecordType": item.get("snow_record_type", "change_request"),
@@ -242,16 +242,16 @@ def handle_tag_mappings_get(event, context):
 # ===================================================================
 
 def handle_tag_mappings_save(event, context):
-    """Create or update tag routing mappings (platform-aware — STORY-140).
+    """Create or update tag routing mappings (platform-aware).
 
-    Consumes the STORY-136 seam to resolve the operative platform, then branches:
+    Consumes the shared seam to resolve the operative platform, then branches:
       - "jira": byte-identical to pre-epic (JIRA-cred gate, jiraProject required,
         _validate_jira_project, tag_value/jira_project/jira_issue_type persist).
       - "servicenow": no JIRA-cred gate, no jiraProject requirement; requires
         snowAssignmentGroupId; format via validate_snow_routing_fields; existence
         via _get_snow_client_or_none() + validate_routing_target; persists the
         snow_* shape the routing engine already reads (routing.py — NO engine
-        change, AC-140.4/§3).
+        change).
     """
     body = _parse_body(event)
     if body is None:
@@ -262,9 +262,9 @@ def handle_tag_mappings_save(event, context):
         return _error(400, "CFG_INVALID_REQUEST",
                       "mappings array is required")
 
-    # STORY-136 seam (§2.1): resolve the operative platform ONCE, before the row
+    # resolve the operative platform ONCE, before the row
     # loop. dual/absent -> "jira" (operative_platform rule). Never read
-    # ITSM_PLATFORM directly (Dumbledore §1 consumption boundary).
+    # ITSM_PLATFORM directly.
     platform = operative_platform(resolve_platforms(_config_table()))
 
     if platform == "servicenow":
@@ -273,7 +273,7 @@ def handle_tag_mappings_save(event, context):
 
 
 def _save_tag_mappings_jira(mappings):
-    """JIRA branch — BYTE-IDENTICAL to the pre-epic save path (AC-140.6)."""
+    """JIRA branch — BYTE-IDENTICAL to the pre-epic save path."""
     # Validate JIRA connection
     jira_creds = _get_jira_credentials()
     if not jira_creds:
@@ -308,16 +308,16 @@ def _save_tag_mappings_jira(mappings):
             validation_errors.append({"tagValue": tag_value, "reason": "tagValue is required"})
             continue
 
-        # SR-125-1/2/9: server-authoritative tag-value validation (length +
+        # server-authoritative tag-value validation (length +
         # control chars). Runs AFTER the empty-check and BEFORE JIRA project
         # validation so it never disturbs the _validate_jira_project ordering
-        # (SR-125-8). Rejections are per-row (SR-125-4), never a blanket 400.
+        #. Rejections are per-row, never a blanket 400.
         tag_reason = _tag_value_rejection(tag_value)
         if tag_reason:
             validation_errors.append({"tagValue": tag_value, "reason": tag_reason})
             continue
 
-        # SR-125-14: bound the client-controlled issue type (LOW, defense-in-depth).
+        # bound the client-controlled issue type (LOW, defense-in-depth).
         issue_type_reason = _issue_type_rejection(jira_issue_type)
         if issue_type_reason:
             validation_errors.append({"tagValue": tag_value, "reason": issue_type_reason})
@@ -336,7 +336,7 @@ def _save_tag_mappings_jira(mappings):
             })
             continue
 
-        # Write to DynamoDB. SR-125-3: tag_value stored VERBATIM (strip only),
+        # Write to DynamoDB.: tag_value stored VERBATIM (strip only),
         # never label/charset-transformed, so the stored key matches the
         # read-side extracted value exactly.
         pk = f"{TAG_ROUTING_PREFIX}{tag_value}"
@@ -356,7 +356,7 @@ def _save_tag_mappings_jira(mappings):
             else:
                 created += 1
         except ClientError:
-            # SR-125-5: sanitize the user-controlled pk before logging to
+            # sanitize the user-controlled pk before logging to
             # prevent CloudWatch log-line forgery. Client sees a generic reason.
             logger.exception("DynamoDB write failed for %s", _sanitize_log(pk))
             validation_errors.append({"tagValue": tag_value, "reason": "Database write failed"})
@@ -369,21 +369,19 @@ def _save_tag_mappings_jira(mappings):
 
 
 def _save_tag_mappings_servicenow(mappings):
-    """ServiceNow branch (STORY-140 §2.2) — SNOW target capture on TAG_ROUTING#.
+    """ServiceNow branch — SNOW target capture on TAG_ROUTING#.
 
-    - NO _get_jira_credentials() gate; NO jiraProject requirement (AC-140.2).
+    - NO _get_jira_credentials() gate; NO jiraProject requirement.
     - Top-level 400 CFG_SNOW_NOT_CONFIGURED when no validated SNOW connection
-      (§2.3 precondition — the ServiceNow twin of the JIRA-cred gate).
-    - Per-row: SR-125 tagValue first (MUST-140-1) -> SNOW format
+      (precondition — the ServiceNow twin of the JIRA-cred gate).
+    - Per-row: tagValue first -> SNOW format
       (validate_snow_routing_fields + snowAssignmentGroupId presence) -> SNOW
-      existence (validate_routing_target). Format-before-existence (§2.4).
-    - Each unique sys_id validated for existence at most once per request
-      (§4.3), mirroring the JIRA unique-project pre-pass.
+      existence (validate_routing_target). Format-before-existence.
+    - Each unique sys_id validated for existence at most once per request, mirroring the JIRA unique-project pre-pass.
     - Persists snow_assignment_group_id / snow_assignment_group_name /
-      snow_record_type — the EXACT snake_case shape routing.py already reads
-      (§3). No engine change, no new error code.
+      snow_record_type — the EXACT snake_case shape routing.py already reads. No engine change, no new error code.
     """
-    # §2.3 precondition — no validated SNOW connection is a whole-request
+    # precondition — no validated SNOW connection is a whole-request
     # failure, not a per-row one. Top-level 400, never CFG_JIRA_NOT_CONFIGURED.
     snow_client = _get_snow_client_or_none()
     if snow_client is None:
@@ -397,7 +395,7 @@ def _save_tag_mappings_servicenow(mappings):
     now = _now_iso()
     table = _config_table()
 
-    # §4.3 / MUST-140-3: cache existence results per unique sys_id so a repeated
+    # cache existence results per unique sys_id so a repeated
     # target is validated (and its sys_user_group looked up) at most once.
     existence_cache: dict[str, bool] = {}
 
@@ -407,8 +405,8 @@ def _save_tag_mappings_servicenow(mappings):
         group_name = m.get("snowAssignmentGroupName", "").strip()
         record_type = m.get("snowRecordType", "").strip() or "change_request"
 
-        # 1) empty-check + SR-125 tag-value validation — UNCHANGED and
-        # platform-independent (MUST-140-1). Runs FIRST, before any target work.
+        # 1) empty-check + tag-value validation — UNCHANGED and
+        # platform-independent. Runs FIRST, before any target work.
         if not tag_value:
             validation_errors.append({"tagValue": tag_value, "reason": "tagValue is required"})
             continue
@@ -418,7 +416,7 @@ def _save_tag_mappings_servicenow(mappings):
             continue
 
         # 2) SNOW FORMAT layer — reuse the existing validator (body unchanged,
-        # MUST-140-5). Cheap, no network call. SNOW-worded codes only.
+        #). Cheap, no network call. SNOW-worded codes only.
         fmt_errors = validate_snow_routing_fields(m)
         if fmt_errors:
             validation_errors.append({
@@ -430,7 +428,7 @@ def _save_tag_mappings_servicenow(mappings):
             continue
 
         # snowAssignmentGroupId is REQUIRED on the SNOW branch (jiraProject is
-        # never required here — AC-140.2). validate_snow_routing_fields only
+        # never required here —.2). validate_snow_routing_fields only
         # validates when present, so enforce presence explicitly.
         if not group_id:
             validation_errors.append({
@@ -441,15 +439,15 @@ def _save_tag_mappings_servicenow(mappings):
             })
             continue
 
-        # 3) SNOW EXISTENCE layer — DD-STRUCT-7 (§4, recommended). Only after
-        # format passes (§2.4). Fail-closed per row (Snape MUST-13). Unique
+        # 3) SNOW EXISTENCE layer — (recommended). Only after
+        # format passes. Fail-closed per row. Unique
         # sys_id validated once (existence_cache).
         if group_id not in existence_cache:
             try:
                 result = snow_client.validate_routing_target(group_id)
                 existence_cache[group_id] = bool(getattr(result, "valid", False))
             except Exception:
-                # Do NOT surface raw upstream detail (Snape MUST-9). Fail closed.
+                # Do NOT surface raw upstream detail. Fail closed.
                 logger.exception(
                     "ServiceNow target validation raised for tag save %s",
                     _sanitize_log(group_id),
@@ -465,10 +463,10 @@ def _save_tag_mappings_servicenow(mappings):
             })
             continue
 
-        # 4) Persist the engine-consumed shape (§3, AC-140.4). No jira_project
-        # written for a SNOW-only row. tag_value stored VERBATIM (SR-125-3);
+        # 4) Persist the engine-consumed shape. No jira_project
+        # written for a SNOW-only row. tag_value stored VERBATIM;
         # used ONLY as a literal attribute value under the fixed TAG_ROUTING#
-        # prefix, never in a query expression (MUST-140-2).
+        # prefix, never in a query expression.
         pk = f"{TAG_ROUTING_PREFIX}{tag_value}"
         item = {
             "pk": pk,
@@ -517,7 +515,7 @@ def handle_tag_mapping_delete(event, context):
             ReturnValues="ALL_OLD",
         )
     except ClientError:
-        # SR-125-5: the delete path decodes a URL-encoded tagValue that can
+        # the delete path decodes a URL-encoded tagValue that can
         # contain newlines; sanitize before logging to prevent log forgery.
         logger.exception("DynamoDB delete failed for %s", _sanitize_log(pk))
         return _error(500, "SYS_INTERNAL_ERROR", "Failed to delete tag routing mapping.")

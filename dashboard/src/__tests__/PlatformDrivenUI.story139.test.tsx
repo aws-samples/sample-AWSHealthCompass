@@ -1,24 +1,19 @@
 /**
- * STORY-139 (EPIC-02) — Dashboard driven by the `platforms` array.
+ * Dashboard driven by the `platforms` array.
  *
- * Owner: Moody (QA). Implementation-flow Step 10. Branch: bugfix/manual-testing.
- *
- * This file implements the Dumbledore §7.3 component/unit test matrix in full,
- * plus the Snape SR-139-3 hostile-input inert-text case (mirroring STC-9), plus
- * the dominant-risk JIRA no-regression (AC-139.9) leg run on EVERY edited
- * surface. Consumes already-landed STORY-136 (`config.platforms`) + STORY-137
- * (`CFG_SNOW_*` error codes) via MOCKED /config/summary, /config/routing,
+ * This file implements the component/unit test matrix in full,
+ * plus the hostile-input inert-text case, plus
+ * the dominant-risk JIRA no-regression leg run on EVERY edited
+ * surface. Consumes the already-landed `config.platforms` +
+ * `CFG_SNOW_*` error codes via MOCKED /config/summary, /config/routing,
  * /config/routing/import*.
  *
  * KNOWN CONSTRAINT: headless Playwright cannot run in this sandbox (asyncio
- * limit). Per project norm (STORY-131/132/133), UI verification is (a) these
+ * limit). UI verification is (a) these
  * deterministic component/unit tests against mocked contracts, and (b) a
- * served-bundle string audit (see 10_moody_tests.md).
+ * served-bundle string audit.
  *
- * Authorities asserted against (never ad-hoc strings):
- *   - 01_hermione_story.md AC-139.1..9
- *   - 03_dumbledore_design.md §1.2, §2.3, §2.5, §3, §4, §5, §7.3
- *   - 04_snape_security.md SR-139-3 (inert text on the correct control/row)
+ * Asserted against:
  *   - platformLabels.ts JIRA_LABELS / SNOW_LABELS (label vocabulary)
  *
  * Test-runner: vitest + @testing-library/react (jsdom). The real
@@ -59,7 +54,7 @@ const SNOW = getPlatformLabels('servicenow');
  * Used to assert label-bound resource-table headers WITHOUT rendering the
  * Cloudscape <SplitPanel> standalone (which requires an AppLayout context that
  * does not lazily mount its panel content in jsdom). This inspects the exact
- * header value the component bound — the property under test for AC-139.4.
+ * header value the component bound — the property under test.
  */
 function collectColumnHeaders(node: any, out: string[] = [], seen = new Set<any>()): string[] {
   if (!node || typeof node !== 'object' || seen.has(node)) return out;
@@ -86,7 +81,7 @@ function collectColumnHeaders(node: any, out: string[] = [], seen = new Set<any>
 
 function snowOnlyConfig(overrides: Partial<OnboardingConfig> = {}): OnboardingConfig {
   return {
-    platform: 'jira', // legacy scalar deliberately still 'jira' (STORY-136 §1.3)
+    platform: 'jira', // legacy scalar deliberately still 'jira'
     platforms: ['servicenow'],
     servicenow: { instanceUrl: 'https://dev.service-now.com', validated: true },
     routing: { defaultProject: '', accountMappingCount: 0 },
@@ -125,10 +120,10 @@ function installRoutingModalMock(opts: {
 }
 
 // ===========================================================================
-// ROW 1 — resolvePlatformContext unit (§1.2, AC-139.3)
+// ROW 1 — resolvePlatformContext unit
 // ===========================================================================
 
-describe('STORY-139 · resolvePlatformContext (§1.2, AC-139.3)', () => {
+describe('resolvePlatformContext', () => {
   it('["servicenow"] → labelPlatform servicenow, snowEnabled only', () => {
     const ctx = resolvePlatformContext({ platforms: ['servicenow'] } as OnboardingConfig);
     expect(ctx.labelPlatform).toBe('servicenow');
@@ -143,7 +138,7 @@ describe('STORY-139 · resolvePlatformContext (§1.2, AC-139.3)', () => {
     expect(ctx.snowEnabled).toBe(false);
   });
 
-  it('["jira","servicenow"] (dual) → labelPlatform jira (§4.3), BOTH enabled', () => {
+  it('["jira","servicenow"] (dual) → labelPlatform jira, BOTH enabled', () => {
     const ctx = resolvePlatformContext({ platforms: ['jira', 'servicenow'] } as OnboardingConfig);
     expect(ctx.labelPlatform).toBe('jira'); // dual → jira label context
     expect(ctx.jiraEnabled).toBe(true);
@@ -166,7 +161,7 @@ describe('STORY-139 · resolvePlatformContext (§1.2, AC-139.3)', () => {
   });
 
   it('legacy scalar-only (platform:"servicenow", no platforms[]) falls back through the scalar', () => {
-    // Defensive fallback path: old cached response predating STORY-136.
+    // Defensive fallback path: old cached response predating the platforms field.
     const ctx = resolvePlatformContext({ platform: 'servicenow' } as OnboardingConfig);
     expect(ctx.platforms).toEqual(['servicenow']);
     expect(ctx.labelPlatform).toBe('servicenow');
@@ -174,10 +169,10 @@ describe('STORY-139 · resolvePlatformContext (§1.2, AC-139.3)', () => {
 });
 
 // ===========================================================================
-// ROW 2 — Routing modal SNOW-only (AC-139.1/.2, §2.2/§2.3)
+// ROW 2 — Routing modal SNOW-only
 // ===========================================================================
 
-describe('STORY-139 · RoutingEditModal SNOW-only (AC-139.1/.2)', () => {
+describe('RoutingEditModal SNOW-only', () => {
   beforeEach(() => vi.clearAllMocks());
 
   async function renderModal(platforms: string[], accounts: any[] = []) {
@@ -207,7 +202,7 @@ describe('STORY-139 · RoutingEditModal SNOW-only (AC-139.1/.2)', () => {
     expect(screen.queryByText('JIRA Project')).not.toBeInTheDocument();
   });
 
-  it('SNOW-only add-row guard fires on empty group (§2.3)', async () => {
+  it('SNOW-only add-row guard fires on empty group', async () => {
     const user = userEvent.setup();
     await renderModal(['servicenow']);
     await user.type(screen.getByLabelText('New account ID'), '111111111111');
@@ -217,7 +212,7 @@ describe('STORY-139 · RoutingEditModal SNOW-only (AC-139.1/.2)', () => {
 });
 
 // ===========================================================================
-// ROW 3 — Label context = SNOW (AC-139.3/.4, §1.3/§3)
+// ROW 3 — Label context = SNOW
 // Real PlatformProvider fed the RESOLVED labelPlatform, exercising the seam.
 // ===========================================================================
 
@@ -225,7 +220,7 @@ function withPlatform(config: OnboardingConfig | null, node: React.ReactNode) {
   return <PlatformProvider platform={resolvePlatformContext(config).labelPlatform}>{node}</PlatformProvider>;
 }
 
-describe('STORY-139 · label context SNOW (AC-139.4)', () => {
+describe('label context SNOW', () => {
   beforeEach(() => vi.clearAllMocks());
 
   // The resource/campaign split-panel content is produced via the
@@ -315,10 +310,10 @@ describe('STORY-139 · label context SNOW (AC-139.4)', () => {
 });
 
 // ===========================================================================
-// ROW 4 — Setup prompt false-negative fixed (AC-139.5, §4)
+// ROW 4 — Setup prompt false-negative fixed
 // ===========================================================================
 
-describe('STORY-139 · Dashboard setup prompt (AC-139.5)', () => {
+describe('Dashboard setup prompt', () => {
   beforeEach(() => vi.clearAllMocks());
 
   async function renderDashboard(config: OnboardingConfig) {
@@ -365,10 +360,10 @@ describe('STORY-139 · Dashboard setup prompt (AC-139.5)', () => {
 });
 
 // ===========================================================================
-// ROW 5 — Summary columns SNOW-only zero-mappings (AC-139.6, §5.1)
+// ROW 5 — Summary columns SNOW-only zero-mappings
 // ===========================================================================
 
-describe('STORY-139 · ConfigurationSummary columns (AC-139.6)', () => {
+describe('ConfigurationSummary columns', () => {
   beforeEach(() => vi.clearAllMocks());
 
   async function renderSummary(config: OnboardingConfig) {
@@ -407,10 +402,10 @@ describe('STORY-139 · ConfigurationSummary columns (AC-139.6)', () => {
 });
 
 // ===========================================================================
-// ROW 6 — Returning-user classification (AC-139.8, §5.2)
+// ROW 6 — Returning-user classification
 // ===========================================================================
 
-describe('STORY-139 · Configuration returning-user (AC-139.8)', () => {
+describe('Configuration returning-user', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('SNOW validated + SNOW routing → summary (NOT first-time wizard)', async () => {
@@ -448,10 +443,10 @@ describe('STORY-139 · Configuration returning-user (AC-139.8)', () => {
 });
 
 // ===========================================================================
-// ROW 7 — Error surfacing (AC-139.1, §2.5)  +  ROW 8 — SR-139-3 hostile input
+// ROW 7 — Error surfacing  +  ROW 8 — hostile input
 // ===========================================================================
 
-describe('STORY-139 · RoutingEditModal error surfacing (AC-139.1, §2.5)', () => {
+describe('RoutingEditModal error surfacing', () => {
   beforeEach(() => vi.clearAllMocks());
 
   async function renderModal(platforms: string[], saveMock: (path: string, opts?: any) => Promise<any>) {
@@ -558,7 +553,7 @@ describe('STORY-139 · RoutingEditModal error surfacing (AC-139.1, §2.5)', () =
   });
 });
 
-describe('STORY-139 · SR-139-3 hostile-input inert text (mirrors STC-9)', () => {
+describe('hostile-input inert text', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('hostile CFG_SNOW_GROUP_NOT_FOUND message renders as INERT TEXT on the default-group control (no live node)', async () => {
@@ -615,10 +610,10 @@ describe('STORY-139 · SR-139-3 hostile-input inert text (mirrors STC-9)', () =>
 });
 
 // ===========================================================================
-// ROW 9 — JIRA NO-REGRESSION (AC-139.9) — dominant risk, run on EVERY surface
+// ROW 9 — JIRA NO-REGRESSION — dominant risk, run on EVERY surface
 // ===========================================================================
 
-describe('STORY-139 · JIRA no-regression (AC-139.9)', () => {
+describe('JIRA no-regression', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('resolvePlatformContext: JIRA-only + dual both label JIRA', () => {

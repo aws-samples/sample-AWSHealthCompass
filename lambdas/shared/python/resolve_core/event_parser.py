@@ -19,11 +19,10 @@ from typing import Any, List, NamedTuple, Optional
 
 logger = logging.getLogger("resolve_core")
 
-# --- Module-level constants (immutable, SR-009) ---
+# --- Module-level constants (immutable) ---
 
-_REGION_PATTERN = re.compile(r"[a-z]{2}(-[a-z]+-\d+)?")  # SR-012
-
-_SECURITY_SERVICES: frozenset[str] = frozenset(  # SR-013
+_REGION_PATTERN = re.compile(r"[a-z]{2}(-[a-z]+-\d+)?")
+_SECURITY_SERVICES: frozenset[str] = frozenset(
     {"RISK", "ABUSE", "IAM", "GUARDDUTY"}
 )
 
@@ -38,13 +37,11 @@ _SERVICE_ARN_MAP: dict[str, str] = {
     "RDS": "arn:aws:rds:{region}:{account_id}:db:{resource_id}",
 }
 
-_MAX_DATE_LEN = 256       # SR-002
-_MAX_DESC_LEN = 32768     # SR-006b
-_MAX_PAGE_STR_LEN = 10    # SR-007
+_MAX_DATE_LEN = 256
+_MAX_DESC_LEN = 32768
+_MAX_PAGE_STR_LEN = 10
 _PAGE_UPPER_BOUND = 100
-_MAX_LOG_EVENT_ARN = 512   # SR-003c
-
-
+_MAX_LOG_EVENT_ARN = 512
 # --- NamedTuple return types (ISSUE-2, ISSUE-4) ---
 
 class ActionabilityResult(NamedTuple):
@@ -94,7 +91,7 @@ def parse_health_date(value: Any) -> Optional[str]:
 
     # Handle datetime objects (from boto3 Health API responses)
     if isinstance(value, datetime):
-        return _datetime_to_iso(value)  # SR-015: isoformat only
+        return _datetime_to_iso(value)  # isoformat only
 
     if not isinstance(value, str):
         return None
@@ -102,14 +99,13 @@ def parse_health_date(value: Any) -> Optional[str]:
     if not value.strip():
         return None
 
-    value = value[:_MAX_DATE_LEN]  # SR-002
-
+    value = value[:_MAX_DATE_LEN]
     # ISO 8601 detection: look for the date-time separator pattern
     # (digit-T-digit) to avoid false positives from "GMT" in RFC 2822.
     if re.search(r"\dT\d", value):
         return _normalize_iso_string(value)
 
-    # RFC 2822 via stdlib (SR-001: no custom regex)
+    # RFC 2822 via stdlib (no custom regex)
     try:
         dt = parsedate_to_datetime(value)
         return _datetime_to_iso(dt)
@@ -135,7 +131,7 @@ def extract_entities(detail: Any) -> List[dict]:
         List of entity dicts, or ``[]`` if neither field is present,
         the input is not a dict, or the field values are not lists.
     """
-    if not isinstance(detail, dict):  # SR-005
+    if not isinstance(detail, dict):
         return []
 
     entities = detail.get("affectedEntities")
@@ -161,9 +157,9 @@ def extract_entities(detail: Any) -> List[dict]:
             "event_arn=%s entity_count=%d",
             event_arn,
             len(result),
-        )  # SR-008b: count only, no entity values
+        )  # count only, no entity values
 
-    # SR-010: log when both variants are present
+    # log when both variants are present
     if (
         isinstance(detail.get("affectedEntities"), list)
         and detail["affectedEntities"]
@@ -206,14 +202,14 @@ def generate_resource_arn(
     if not isinstance(resource_id, str) or not resource_id:
         return resource_id if isinstance(resource_id, str) else ""
 
-    # Strip control characters (SR-004c)
+    # Strip control characters
     resource_id = _strip_control_chars(resource_id)
 
     # Already an ARN — pass through
     if resource_id.startswith("arn:"):
         return resource_id
 
-    # Validate inputs (SR-004a/b/d) — return resource_id on failure
+    # Validate inputs — return resource_id on failure
     if not isinstance(service, str) or not service.replace("_", "").isalnum():
         logger.debug("ARN generation skipped: invalid service format")
         return resource_id
@@ -244,7 +240,7 @@ def extract_description(event_description: Any) -> str:
 
     Prefers the ``en_US`` language entry; falls back to the first element.
     Callers must escape the returned text for their output context
-    (ADF, HTML, etc.) — this function returns raw text (SR-006c).
+    (ADF, HTML, etc.) — this function returns raw text.
 
     Args:
         event_description: The ``eventDescription`` array from the event
@@ -294,7 +290,7 @@ def coerce_page_fields(detail: Any) -> PageInfo:
         A :class:`PageInfo` named tuple ``(page, total_pages)`` defaulting
         to ``PageInfo(1, 1)`` if the input is missing or malformed.
     """
-    if not isinstance(detail, dict):  # SR-005
+    if not isinstance(detail, dict):
         return PageInfo(1, 1)
 
     page = _coerce_int(detail.get("page"), "page")
@@ -309,7 +305,7 @@ def infer_actionability(detail: Any) -> ActionabilityResult:
     returned as-is with ``was_inferred=False``. When missing, the value
     is inferred from ``service`` — security services default to
     ``ACTION_MAY_BE_REQUIRED``; all others also default to
-    ``ACTION_MAY_BE_REQUIRED`` (BRD C-5 / A-ING-3).
+    ``ACTION_MAY_BE_REQUIRED``.
 
     Args:
         detail: The ``detail`` dict from a Health EventBridge event.
@@ -322,7 +318,7 @@ def infer_actionability(detail: Any) -> ActionabilityResult:
     """
     default = ActionabilityResult("ACTION_MAY_BE_REQUIRED", True)
 
-    if not isinstance(detail, dict):  # SR-005
+    if not isinstance(detail, dict):
         return default
 
     event_arn = _sanitize_log_value(
@@ -343,7 +339,7 @@ def infer_actionability(detail: Any) -> ActionabilityResult:
             return default
         return ActionabilityResult(stripped, False)
 
-    # Infer — currently all paths produce the same value (BRD C-5).
+    # Infer — currently all paths produce the same value.
     # The security-service branch exists for future differentiation.
     service = detail.get("service", "")
     is_security = isinstance(service, str) and service.upper() in _SECURITY_SERVICES
@@ -401,7 +397,7 @@ def should_filter_backup_event(detail: Any, config: Any) -> bool:
     """Determine whether a backup event should be filtered (skipped).
 
     Checks ``detail.backupEvent`` with a strict ``is True`` identity test
-    (SEC-007-9: fail-open on unexpected types). When the event is a backup
+    (fail-open on unexpected types). When the event is a backup
     and filtering is enabled, returns ``True`` to signal the caller to skip
     further processing.
 
@@ -409,7 +405,7 @@ def should_filter_backup_event(detail: Any, config: Any) -> bool:
         detail: The ``detail`` dict from a Health EventBridge event.
         config: Config dict for the ``FILTER_BACKUP_EVENTS`` item, e.g.
             ``{"enabled": True}``. Pass ``{}`` or ``None`` when the item
-            is absent — defaults to filtering enabled (BRD C-4).
+            is absent — defaults to filtering enabled.
 
     Returns:
         ``True`` if the event should be **skipped** (is a backup event
@@ -429,23 +425,23 @@ def should_filter_backup_event(detail: Any, config: Any) -> bool:
     return config.get("enabled", True) is True
 
 
-# --- Private helpers (SR-011: underscore prefix, not exported) ---
+# --- Private helpers (underscore prefix, not exported) ---
 
 
 def _sanitize_log_value(val: Any, max_len: int) -> str:
-    """Strip control characters and truncate for safe log output (SR-003a)."""
+    """Strip control characters and truncate for safe log output."""
     text = str(val) if val is not None else ""
     text = text.replace("\n", "").replace("\r", "").replace("\x00", "")
     return text[:max_len]
 
 
 def _strip_control_chars(val: str) -> str:
-    """Remove \\n, \\r, \\x00 from a string (SR-004c)."""
+    """Remove \\n, \\r, \\x00 from a string."""
     return val.replace("\n", "").replace("\r", "").replace("\x00", "")
 
 
 def _datetime_to_iso(dt: datetime) -> str:
-    """Format a datetime to ISO 8601 with Z suffix (SR-015)."""
+    """Format a datetime to ISO 8601 with Z suffix."""
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     else:
@@ -464,7 +460,7 @@ def _normalize_iso_string(value: str) -> str:
 
 
 def _sanitize_description(text: str) -> str:
-    """Strip null bytes and truncate description (SR-006a/b)."""
+    """Strip null bytes and truncate description."""
     return text.replace("\x00", "")[:_MAX_DESC_LEN]
 
 
@@ -472,7 +468,7 @@ def _coerce_int(val: Any, field_name: str) -> int:
     """Coerce a value to int clamped to [1, _PAGE_UPPER_BOUND]."""
     if val is None:
         return 1
-    # SR-16: bool is a subclass of int — check before isinstance(val, int)
+    # bool is a subclass of int — check before isinstance(val, int)
     if isinstance(val, bool):
         logger.warning(
             "Non-numeric page value — "
@@ -483,7 +479,7 @@ def _coerce_int(val: Any, field_name: str) -> int:
     if isinstance(val, int):
         return max(1, min(val, _PAGE_UPPER_BOUND))
     if isinstance(val, str):
-        if len(val) > _MAX_PAGE_STR_LEN:  # SR-007
+        if len(val) > _MAX_PAGE_STR_LEN:
             logger.warning(
                 "Non-numeric page value — "
                 "error_code=PROC_EVENT_PARSE_FAILED field=%s",
@@ -499,7 +495,7 @@ def _coerce_int(val: Any, field_name: str) -> int:
                 field_name,
             )
             return 1
-    # IMPL-SEC-010-03: float and other unexpected types
+    # float and other unexpected types
     logger.warning(
         "Non-numeric page value — "
         "error_code=PROC_EVENT_PARSE_FAILED field=%s",

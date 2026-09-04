@@ -1,4 +1,4 @@
-"""Orphan queue notification API handlers (STORY-048).
+"""Orphan queue notification API handlers.
 
 Implements 2 endpoints for Amazon DynamoDB orphan ticket tracking:
   GET /api/config/routing/orphan-status  — Orphan ticket count and threshold
@@ -38,7 +38,7 @@ CORS_HEADERS = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 }
 
-# STORY-117: threshold now sourced from resolve_core.constants
+# threshold now sourced from resolve_core.constants
 # (ORPHAN_ALERT_THRESHOLD) so it can never drift from the sync Lambda's
 # alert-flag calculation. Kept as a module-level alias for readability
 # in this file's existing call sites.
@@ -74,7 +74,7 @@ def _error(status_code: int, code: str, message: str) -> dict:
 def handle_orphan_status(event, context):
     """Return orphan ticket count and threshold status.
 
-    STORY-117: Reads the same ConfigTable pk/field the sync Lambda writes
+    Reads the same ConfigTable pk/field the sync Lambda writes
     (resolve_core.constants.ORPHAN_STATUS_KEY / ORPHAN_COUNT_FIELD).
     Previously this handler read a different key ("ORPHAN_STATUS") and
     field ("orphan_count") than the writer used, so the endpoint always

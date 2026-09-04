@@ -1,5 +1,5 @@
 /**
- * Unit tests for STORY-097: Connection Edit Modal
+ * Unit tests for the Connection Edit Modal
  *
  * Tests ConnectionEditModal component: platform toggles, JIRA/ServiceNow forms,
  * Test Connection buttons, Save/Cancel, URL validation (SSRF protection),
@@ -156,7 +156,7 @@ async function renderModal(props: {
 }
 
 /**
- * STORY-102: Helper to get the credential password input that appears after clicking "Change".
+ * Helper to get the credential password input that appears after clicking "Change".
  * Cloudscape FormField labels can match multiple accessible elements, so we query DOM directly.
  * After clicking "Change", the password input is rendered inside the FormField.
  */
@@ -250,7 +250,7 @@ describe('ConnectionEditModal — Field Pre-population', () => {
     });
   });
 
-  it('STORY-102: JIRA token shows "Configured" badge when credentials exist (not blank input)', async () => {
+  it('JIRA token shows "Configured" badge when credentials exist (not blank input)', async () => {
     await renderModal({ config: makeJiraConfig() });
 
     await waitFor(() => {
@@ -260,7 +260,7 @@ describe('ConnectionEditModal — Field Pre-population', () => {
     });
   });
 
-  it('STORY-102: ServiceNow password shows "Configured" badge when credentials exist', async () => {
+  it('ServiceNow password shows "Configured" badge when credentials exist', async () => {
     await renderModal({ config: makeSnowConfig() });
 
     await waitFor(() => {
@@ -271,7 +271,7 @@ describe('ConnectionEditModal — Field Pre-population', () => {
     });
   });
 
-  it('STORY-102: ServiceNow client secret shows "Configured" badge when credentials exist', async () => {
+  it('ServiceNow client secret shows "Configured" badge when credentials exist', async () => {
     await renderModal({ config: makeSnowConfig() });
 
     await waitFor(() => {
@@ -300,7 +300,7 @@ describe('ConnectionEditModal — Field Pre-population', () => {
     });
   });
 
-  it('all credential fields have autoComplete="one-time-code" after clicking Change (STORY-109)', async () => {
+  it('all credential fields have autoComplete="one-time-code" after clicking Change', async () => {
     const user = userEvent.setup();
     await renderModal({ config: makeBothPlatformsConfig() });
 
@@ -321,7 +321,7 @@ describe('ConnectionEditModal — Field Pre-population', () => {
     });
   });
 
-  it('STORY-102: first-time setup (no credentials) shows blank input directly (no badge)', async () => {
+  it('first-time setup (no credentials) shows blank input directly (no badge)', async () => {
     await renderModal({ config: makeFirstTimeJiraConfig() });
 
     await waitFor(() => {
@@ -349,7 +349,7 @@ describe('ConnectionEditModal — Test Connection', () => {
 
     await renderModal({ config: makeJiraConfig() });
 
-    // STORY-102: Click "Change" to reveal the API token input
+    // Click "Change" to reveal the API token input
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
     });
@@ -376,7 +376,7 @@ describe('ConnectionEditModal — Test Connection', () => {
 
     await renderModal({ config: makeJiraConfig() });
 
-    // STORY-102: Click "Change" to reveal input
+    // Click "Change" to reveal input
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
     });
@@ -399,7 +399,7 @@ describe('ConnectionEditModal — Test Connection', () => {
 
     await renderModal({ config: makeJiraConfig() });
 
-    // STORY-102: Click "Change" to reveal input
+    // Click "Change" to reveal input
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
     });
@@ -437,7 +437,7 @@ describe('ConnectionEditModal — Save', () => {
 
     await renderModal({ config: makeJiraConfig(), onSave });
 
-    // STORY-102: Click "Change" to reveal input, then fill token
+    // Click "Change" to reveal input, then fill token
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
     });
@@ -470,7 +470,7 @@ describe('ConnectionEditModal — Save', () => {
 
     await renderModal({ config: makeJiraConfig() });
 
-    // STORY-102: Click "Change" to reveal input, then fill token
+    // Click "Change" to reveal input, then fill token
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
     });
@@ -506,7 +506,7 @@ describe('ConnectionEditModal — Save', () => {
 
     await renderModal({ config: makeJiraConfig(), onSave });
 
-    // STORY-102: Click "Change" to reveal input, then fill token
+    // Click "Change" to reveal input, then fill token
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
     });
@@ -538,7 +538,7 @@ describe('ConnectionEditModal — Save', () => {
 
     await renderModal({ config: makeJiraConfig(), onSave });
 
-    // STORY-102: Click "Change" to reveal input, then fill token
+    // Click "Change" to reveal input, then fill token
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
     });
@@ -589,7 +589,7 @@ describe('ConnectionEditModal — Cancel and Credential Clearing', () => {
       <ConnectionEditModal visible={true} config={config} onDismiss={onDismiss} onSave={vi.fn()} />
     );
 
-    // STORY-102: Click "Change" to reveal input first
+    // Click "Change" to reveal input first
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
     });
@@ -612,7 +612,7 @@ describe('ConnectionEditModal — Cancel and Credential Clearing', () => {
       <ConnectionEditModal visible={true} config={config} onDismiss={onDismiss} onSave={vi.fn()} />
     );
 
-    // STORY-102: After cancel, credential should be back in "Configured" sentinel state
+    // After cancel, credential should be back in "Configured" sentinel state
     await waitFor(() => {
       expect(screen.getByText('Configured')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Change JIRA API Token/i })).toBeInTheDocument();
@@ -708,7 +708,7 @@ describe('ConnectionEditModal — URL Validation', () => {
 // Tests: Integration with ConfigurationSummary (edit-connections button)
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationSummary — edit-connections button (STORY-097 wiring)', () => {
+describe('ConfigurationSummary — edit-connections button (wiring)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiFetch.mockImplementation(async (path: string) => {
@@ -770,10 +770,10 @@ describe('ConfigurationSummary — edit-connections button (STORY-097 wiring)', 
 });
 
 // ---------------------------------------------------------------------------
-// Tests: STORY-102 — Credential Sentinel Pattern (Partial Update)
+// Tests: Credential Sentinel Pattern (Partial Update)
 // ---------------------------------------------------------------------------
 
-describe('ConnectionEditModal — STORY-102 Credential Sentinel Pattern', () => {
+describe('ConnectionEditModal — Credential Sentinel Pattern', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

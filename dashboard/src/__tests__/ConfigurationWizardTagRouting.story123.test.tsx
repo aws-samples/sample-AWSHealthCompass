@@ -1,33 +1,30 @@
 /**
- * Unit/integration tests for STORY-123 (Resource-Tags epic, story 1 of 6):
+ * Unit/integration tests for the resource-tag routing strategy:
  *   Persist the wizard's tag-routing strategy on "Save & Activate" (previously a
  *   cosmetic no-op) via the already-deployed POST /config/routing/strategy, and
  *   make the Review step's "Tag Routing: Enabled" confirmation TRUE — an
  *   affirmative green "Enabled" appears ONLY after a successful HTTP 200 persist.
  *
- * Source of truth: 01_hermione_story.md (AC-1..AC-8), 03_dumbledore_design.md
- * (AD-1..AD-8, TR-1..TR-12, AC-D1..AC-D10, EC-1..EC-12), 10_harry_code.md.
- *
- * Coverage map (AC / AD / EC → test):
- *   AC-1  / AC-D1 — strategy POST {mode:'tag', tagKey} sequenced BEFORE
- *                   /config/activate (and after account-mappings, before dispatch)
- *   AC-2  / AC-D2 / EC-4 — toggle off → POST {mode:'account'}; no mode:'tag';
- *                   Review reads "Disabled"; never green "Enabled"
- *   AC-4  / AC-D4 / EC-3 — strategy 500 → error surfaced in saveErrors, onSave NOT
- *                   called, Review reads "Not enabled" (no false success)
- *   AC-4          — strategy 400 → friendly parseApiError copy (no raw "API 400:")
- *   AC-5  / AC-D5 / AD-7 — green "Enabled (key: …)" ONLY in 'saved' (post-200)
- *   AC-6  / AD-7 / EC-8 — editing the key after a save resets to unsaved
- *                   (pending "will be activated"), never a stale green "Enabled"
- *   AC-7  / AC-D3 / TR-9 — flat {mode,tagKey} body byte-compatible with the modal
- *                   write path; NO parallel/flat tagRoutingEnabled, NO nested
- *                   routing.tagRouting payload, NO tagSource on the wire
- *   AC-D7 / AD-5 / EC-6 — a tag-strategy failure does NOT gate /config/activate
- *                   (independent of the STORY-115 dispatch invariant)
- *   AC-D8 / EC-1 / TR-6 — blank-key submit guard blocks leaving Routing and shows
- *                   errorText; no strategy POST is made
- *   STORY-115 regression — the dispatch-failure activation-halt invariant still
- *                   holds with the new Step 3.5 present (activate + onSave skipped)
+ * Coverage map:
+ *   - strategy POST {mode:'tag', tagKey} sequenced BEFORE
+ *     /config/activate (and after account-mappings, before dispatch)
+ *   - toggle off → POST {mode:'account'}; no mode:'tag';
+ *     Review reads "Disabled"; never green "Enabled"
+ *   - strategy 500 → error surfaced in saveErrors, onSave NOT
+ *     called, Review reads "Not enabled" (no false success)
+ *   - strategy 400 → friendly parseApiError copy (no raw "API 400:")
+ *   - green "Enabled (key: …)" ONLY in 'saved' (post-200)
+ *   - editing the key after a save resets to unsaved
+ *     (pending "will be activated"), never a stale green "Enabled"
+ *   - flat {mode,tagKey} body byte-compatible with the modal
+ *     write path; NO parallel/flat tagRoutingEnabled, NO nested
+ *     routing.tagRouting payload, NO tagSource on the wire
+ *   - a tag-strategy failure does NOT gate /config/activate
+ *     (independent of the dispatch invariant)
+ *   - blank-key submit guard blocks leaving Routing and shows
+ *     errorText; no strategy POST is made
+ *   - dispatch-failure regression — the dispatch-failure activation-halt invariant
+ *     still holds with the new Step 3.5 present (activate + onSave skipped)
  *
  * Style mirrors ConfigurationWizardDispatch.test.tsx / ...ReviewStep.test.tsx:
  * mock ../api, ../config, ../PlatformContext; dynamic-import the component; drive
@@ -86,7 +83,7 @@ const mockApiFetch = vi.mocked(apiFetch);
  * Default happy-path mock: every endpoint resolves. The strategy endpoint
  * returns the authoritative 200 body shape (mode, tagKey, tagSource, updatedAt)
  * that handle_routing_strategy returns; the wizard sets 'saved' from this 200,
- * not from a re-GET (TR-10 / eventual-consistency).
+ * not from a re-GET (eventual-consistency).
  */
 function installHappyMock() {
   mockApiFetch.mockImplementation(async (path: string, opts?: any) => {
@@ -182,10 +179,10 @@ function allRequestBodies(): any[] {
 }
 
 // ===========================================================================
-// AC-1 / AC-D1 — strategy persisted when enabled, sequenced before activate
+// Strategy persisted when enabled, sequenced before activate
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — persists strategy on Save & Activate (STORY-123 AC-1)', () => {
+describe('ConfigurationWizard tag routing — persists strategy on Save & Activate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -206,7 +203,7 @@ describe('ConfigurationWizard tag routing — persists strategy on Save & Activa
     expect(body.mode).toBe('tag');
     expect(body.tagKey).toBe('Team');
 
-    // Sequencing (AC-1 / AD-4): after account-mappings (none here) and dispatch
+    // Sequencing: after account-mappings (none here) and dispatch
     // ordering — strategy MUST precede both dispatch and activate.
     await waitFor(() => expect(wasCalled('/config/activate')).toBe(true));
     const idxStrategy = callIndex('/config/routing/strategy');
@@ -237,10 +234,10 @@ describe('ConfigurationWizard tag routing — persists strategy on Save & Activa
 });
 
 // ===========================================================================
-// AC-5 / AC-D5 / AD-7 — Review shows green "Enabled" ONLY after 200
+// Review shows green "Enabled" ONLY after 200
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — Review confirmation is truthful (STORY-123 AC-5)', () => {
+describe('ConfigurationWizard tag routing — Review confirmation is truthful', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -256,10 +253,10 @@ describe('ConfigurationWizard tag routing — Review confirmation is truthful (S
 
     // BEFORE Save: unsaved+key → pending "will be activated" (not an affirmative
     // green Enabled). The anchored success copy must NOT be present yet.
-    // STORY-124: the Review token now carries the persisted tag source
+    // The Review token now carries the persisted tag source
     // ("source: Account tags" — the default selection).
-    // STORY-125: the summary now also appends a mappings clause (" · no mappings
-    // yet" when none exist). Assertions updated to the post-STORY-125 contract
+    // The summary now also appends a mappings clause (" · no mappings
+    // yet" when none exist). Assertions updated to the current contract
     // (renderTagRoutingSummary) — the green-vs-pending distinction (the
     // "— will be activated" suffix) is unchanged and still the thing under test.
     expect(screen.getByText(/Enabled \(key: Team, source: Account tags\) · no mappings yet — will be activated on Save & Activate/)).toBeInTheDocument();
@@ -268,7 +265,7 @@ describe('ConfigurationWizard tag routing — Review confirmation is truthful (S
     await clickSaveAndActivate(user);
 
     // AFTER a 200: bare green success (no pending "will be activated" suffix),
-    // including the source token and the STORY-125 mappings clause.
+    // including the source token and the mappings clause.
     await waitFor(() =>
       expect(screen.getByText(/^Enabled \(key: Team, source: Account tags\) · no mappings yet$/)).toBeInTheDocument()
     );
@@ -277,10 +274,10 @@ describe('ConfigurationWizard tag routing — Review confirmation is truthful (S
 });
 
 // ===========================================================================
-// AC-2 / AC-D2 / EC-4 — toggle off → mode:'account', never "Enabled"
+// Toggle off → mode:'account', never "Enabled"
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — disabled path writes account mode (STORY-123 AC-2)', () => {
+describe('ConfigurationWizard tag routing — disabled path writes account mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -312,10 +309,10 @@ describe('ConfigurationWizard tag routing — disabled path writes account mode 
 });
 
 // ===========================================================================
-// AC-4 / AC-D4 / EC-3 — save failure surfaces + blocks a false success
+// Save failure surfaces + blocks a false success
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — save failure is honest (STORY-123 AC-4)', () => {
+describe('ConfigurationWizard tag routing — save failure is honest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -384,15 +381,15 @@ describe('ConfigurationWizard tag routing — save failure is honest (STORY-123 
 });
 
 // ===========================================================================
-// AC-D7 / AD-5 / EC-6 — tag failure does NOT gate /config/activate
+// Tag failure does NOT gate /config/activate
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — failure is independent of the activate gate (STORY-123 AD-5)', () => {
+describe('ConfigurationWizard tag routing — failure is independent of the activate gate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('when only the strategy POST fails, /config/activate STILL runs (unlike the STORY-115 dispatch gate) but onSave does NOT', async () => {
+  it('when only the strategy POST fails, /config/activate STILL runs (unlike the dispatch gate) but onSave does NOT', async () => {
     mockApiFetch.mockImplementation(async (path: string) => {
       if (path === '/config/routing/strategy') {
         throw new Error('API 500: transient');
@@ -417,7 +414,7 @@ describe('ConfigurationWizard tag routing — failure is independent of the acti
     await waitFor(() => expect(wasCalled('/config/routing/strategy')).toBe(true));
     await waitFor(() => expect(wasCalled('/config/dispatch')).toBe(true));
 
-    // AD-5: a tag-strategy failure has no dispatch-widening/security consequence,
+    // A tag-strategy failure has no dispatch-widening/security consequence,
     // so it does NOT set dispatchFailed and does NOT block activation.
     await waitFor(() => expect(wasCalled('/config/activate')).toBe(true));
     // ...but the overall flow still reports failure (errors present → no onSave).
@@ -426,10 +423,10 @@ describe('ConfigurationWizard tag routing — failure is independent of the acti
 });
 
 // ===========================================================================
-// STORY-115 regression — activation halt on dispatch failure still holds
+// Dispatch-failure regression — activation halt on dispatch failure still holds
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — STORY-115 activation-halt still respected (regression)', () => {
+describe('ConfigurationWizard tag routing — activation-halt still respected (regression)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -464,7 +461,7 @@ describe('ConfigurationWizard tag routing — STORY-115 activation-halt still re
     await waitFor(() => expect(wasCalled('/config/dispatch')).toBe(true));
     expect(callIndex('/config/routing/strategy')).toBeLessThan(callIndex('/config/dispatch'));
 
-    // STORY-115 SECURITY INVARIANT: dispatch failure halts activation + success.
+    // SECURITY INVARIANT: dispatch failure halts activation + success.
     expect(wasCalled('/config/activate')).toBe(false);
     expect(onSave).not.toHaveBeenCalled();
 
@@ -476,10 +473,10 @@ describe('ConfigurationWizard tag routing — STORY-115 activation-halt still re
 });
 
 // ===========================================================================
-// AC-D8 / EC-1 / TR-6 — blank-key submit guard
+// Blank-key submit guard
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — blank-key submit guard (STORY-123 AD-8)', () => {
+describe('ConfigurationWizard tag routing — blank-key submit guard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -508,10 +505,10 @@ describe('ConfigurationWizard tag routing — blank-key submit guard (STORY-123 
 });
 
 // ===========================================================================
-// AC-6 / AD-7 / EC-8 — editing the key after a save resets the confirmation
+// Editing the key after a save resets the confirmation
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — editing after save invalidates the confirmation (STORY-123 EC-8)', () => {
+describe('ConfigurationWizard tag routing — editing after save invalidates the confirmation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -526,8 +523,8 @@ describe('ConfigurationWizard tag routing — editing after save invalidates the
     await advanceToReviewStep(user);
     await clickSaveAndActivate(user);
 
-    // Confirm we reached the green success state (STORY-124: source token;
-    // STORY-125: " · no mappings yet" clause appended).
+    // Confirm we reached the green success state (source token;
+    // " · no mappings yet" clause appended).
     await waitFor(() =>
       expect(screen.getByText(/^Enabled \(key: Team, source: Account tags\) · no mappings yet$/)).toBeInTheDocument()
     );
@@ -547,16 +544,16 @@ describe('ConfigurationWizard tag routing — editing after save invalidates the
 });
 
 // ===========================================================================
-// AC-7 / AC-D3 / TR-9 — STORY-113 nested-shape write path preserved
+// Nested-shape write path preserved
 // ===========================================================================
 
-describe('ConfigurationWizard tag routing — STORY-113 nested-shape write path preserved (STORY-123 AC-7)', () => {
+describe('ConfigurationWizard tag routing — nested-shape write path preserved', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
   });
 
-  it('sends a flat {mode,tagKey,tagSource} body identical to the modal write path — no flat/nested tagRouting field anywhere (STORY-124 adds tagSource)', async () => {
+  it('sends a flat {mode,tagKey,tagSource} body identical to the modal write path — no flat/nested tagRouting field anywhere', async () => {
     const user = userEvent.setup();
     await renderWizard();
 
@@ -568,10 +565,10 @@ describe('ConfigurationWizard tag routing — STORY-113 nested-shape write path 
     await waitFor(() => expect(wasCalled('/config/routing/strategy')).toBe(true));
 
     // Byte-compatible with RoutingEditModal.handleSave Step 4.
-    // STORY-124 (RT-02): the strategy body now carries `tagSource` on BOTH
+    // The strategy body now carries `tagSource` on BOTH
     // surfaces (default 'account' when the operator makes no explicit choice),
     // so the wire shape is {mode, tagKey, tagSource} — still identical to the
-    // modal write path. (Superseded the STORY-123 "no tagSource" assertion.)
+    // modal write path. (Superseded the earlier "no tagSource" assertion.)
     const body = strategyBody();
     expect(Object.keys(body).sort()).toEqual(['mode', 'tagKey', 'tagSource']);
     expect(body.tagSource).toBe('account');
@@ -585,7 +582,7 @@ describe('ConfigurationWizard tag routing — STORY-113 nested-shape write path 
     }
   });
 
-  it('loads tag mappings on mount (GET) and makes NO upsert POST when no mappings are added (STORY-125 landed)', async () => {
+  it('loads tag mappings on mount (GET) and makes NO upsert POST when no mappings are added', async () => {
     const user = userEvent.setup();
     await renderWizard();
 
@@ -596,8 +593,8 @@ describe('ConfigurationWizard tag routing — STORY-113 nested-shape write path 
 
     await waitFor(() => expect(wasCalled('/config/routing/strategy')).toBe(true));
 
-    // STORY-125: the editor round-trips existing mappings via a mount-time GET
-    // (AC-3). With no mappings added in this flow, saveAll's persistTagMappings
+    // The editor round-trips existing mappings via a mount-time GET
+    // With no mappings added in this flow, saveAll's persistTagMappings
     // guard (upserts.length || removed.length) skips the upsert POST entirely.
     const tagsCalls = mockApiFetch.mock.calls.filter(c => c[0] === '/config/routing/tags');
     const tagsGet = tagsCalls.filter(c => (((c[1] as any)?.method) ?? 'GET') === 'GET');

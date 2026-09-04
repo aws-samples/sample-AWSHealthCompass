@@ -1,26 +1,19 @@
 /**
- * STORY-140 (RT-10) — ServiceNow tag-routing target persistence: FRONTEND.
+ * ServiceNow tag-routing target persistence: FRONTEND.
  *
- * Owner: Moody (QA). Implementation-flow Step 10. Branch: bugfix/manual-testing.
- *
- * Implements the Dumbledore §9 frontend test set (T18-T23) plus the Snape
- * MUST-140-3 / SR-139-1/2/3 hostile-input inert-text case (STC-9-style) for the
- * tag-routing editor, plus the AC-140.6 JIRA no-regression leg (T22).
+ * Implements the frontend test set (T18-T23) plus the hostile-input
+ * inert-text case for the tag-routing editor, plus the JIRA no-regression
+ * leg (T22).
  *
  * Consumes the already-landed component under test
  * (`components/TagRoutingMappingsEditor.tsx` + `components/tagMappings.ts`) with
  * the API MOCKED. `snowEnabled`/`jiraEnabled` are the platform gating props the
- * host derives from `resolvePlatformContext(config.platforms)` (STORY-136/139).
+ * host derives from `resolvePlatformContext(config.platforms)`.
  *
- * KNOWN CONSTRAINT: headless Playwright cannot run in this sandbox. Per project
- * norm (STORY-131/132/133/139), UI verification is (a) these deterministic
- * component/unit tests against mocked contracts, and (b) a served-source string
- * audit (T23) reading the actual component source at test time.
- *
- * Authorities asserted against:
- *   - 01_hermione_story.md AC-140.1..6
- *   - 03_dumbledore_design.md §5 (editor), §9 T18-T23
- *   - 04_snape_security.md MUST-140-3, SR-139-1/2/3 (inert text)
+ * KNOWN CONSTRAINT: headless Playwright cannot run in this sandbox. UI
+ * verification is (a) these deterministic component/unit tests against mocked
+ * contracts, and (b) a served-source string audit (T23) reading the actual
+ * component source at test time.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -46,7 +39,7 @@ const mockApiFetch = vi.mocked(apiFetch);
 
 // ---------------------------------------------------------------------------
 // Controlled harness — owns row + removed state like the real hosts, and lets
-// tests pass the STORY-140 platform gating props.
+// tests pass the platform gating props.
 // ---------------------------------------------------------------------------
 function Harness(props: {
   initial?: TagMappingRow[];
@@ -106,10 +99,10 @@ const jiraRow = (v: string, p = 'CLOUDOPS'): TagMappingRow => ({
 beforeEach(() => vi.clearAllMocks());
 
 // ===========================================================================
-// T18 (AC-140.3) — SNOW-only editor columns
+// SNOW-only editor columns
 // ===========================================================================
 
-describe('STORY-140 T18 — SNOW-only editor columns (AC-140.3)', () => {
+describe('SNOW-only editor columns', () => {
   it('renders "ServiceNow Group" + "Record Type" columns; JIRA columns absent', () => {
     render(<Harness snowEnabled jiraEnabled={false} initial={[snowRow('platform')]} />);
     // Assert against the rendered column headers (robust to Cloudscape/jsdom
@@ -138,11 +131,11 @@ describe('STORY-140 T18 — SNOW-only editor columns (AC-140.3)', () => {
 });
 
 // ===========================================================================
-// T19 (AC-140.3) — SNOW-only add-row requires sys_id, not JIRA project;
+// SNOW-only add-row requires sys_id, not JIRA project;
 //                  duplicate-tagValue guard still fires
 // ===========================================================================
 
-describe('STORY-140 T19 — SNOW-only add-row validation (AC-140.3)', () => {
+describe('SNOW-only add-row validation', () => {
   it('requires the ServiceNow group sys_id (not a JIRA project) to add a row', async () => {
     const user = userEvent.setup();
     render(<Harness snowEnabled jiraEnabled={false} />);
@@ -216,10 +209,10 @@ describe('STORY-140 T19 — SNOW-only add-row validation (AC-140.3)', () => {
 });
 
 // ===========================================================================
-// T20 (AC-140.1) — structured SNOW error surfacing
+// Structured SNOW error surfacing
 // ===========================================================================
 
-describe('STORY-140 T20 — SNOW error surfacing (AC-140.1)', () => {
+describe('SNOW error surfacing', () => {
   it('maps CFG_SNOW_GROUP_NOT_FOUND to a per-row inline message on the correct tagValue', () => {
     const mapped = snowErrorMessage('CFG_SNOW_GROUP_NOT_FOUND', 'raw', 'ffffffffffffffffffffffffffffffff');
     render(<Harness
@@ -248,10 +241,10 @@ describe('STORY-140 T20 — SNOW error surfacing (AC-140.1)', () => {
 });
 
 // ===========================================================================
-// T21 (AC-140.5) — GET hydrate → SNOW target + rowStatus persisted
+// GET hydrate → SNOW target + rowStatus persisted
 // ===========================================================================
 
-describe('STORY-140 T21 — round-trip hydrate (AC-140.5)', () => {
+describe('round-trip hydrate', () => {
   it('a persisted SNOW row displays its sys_id and record type, marked Saved', () => {
     render(<Harness snowEnabled jiraEnabled={false} initial={[snowRow('platform')]} />);
     const idInput = screen.getByLabelText('ServiceNow group for tag value platform') as HTMLInputElement;
@@ -273,10 +266,10 @@ describe('STORY-140 T21 — round-trip hydrate (AC-140.5)', () => {
 });
 
 // ===========================================================================
-// T22 (AC-140.6) — JIRA-only editor byte-identical
+// JIRA-only editor byte-identical
 // ===========================================================================
 
-describe('STORY-140 T22 — JIRA-only editor unchanged (AC-140.6)', () => {
+describe('JIRA-only editor unchanged', () => {
   it('default props (no snowEnabled) render the JIRA columns and add-row, SNOW absent', () => {
     render(<Harness initial={[jiraRow('platform')]} />);
     const headers = screen.getAllByRole('columnheader').map(h => h.textContent);
@@ -320,10 +313,10 @@ describe('STORY-140 T22 — JIRA-only editor unchanged (AC-140.6)', () => {
 });
 
 // ===========================================================================
-// MUST-140-3 / SR-139-1/2/3 (STC-9-style) — hostile input renders INERT
+// Hostile input renders INERT
 // ===========================================================================
 
-describe('STORY-140 MUST-140-3 — hostile input renders inert text', () => {
+describe('hostile input renders inert text', () => {
   it('a hostile tagValue renders as inert TEXT (no HTML injection)', () => {
     const xss = '<img src=x onerror=alert(1)>';
     const { container } = render(
@@ -369,7 +362,7 @@ describe('STORY-140 MUST-140-3 — hostile input renders inert text', () => {
 // T23 — served-source string audit (sandbox Playwright constraint)
 // ===========================================================================
 
-describe('STORY-140 T23 — served-source string audit', () => {
+describe('served-source string audit', () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const editorSrc = readFileSync(
     resolve(here, '../components/TagRoutingMappingsEditor.tsx'), 'utf-8');
@@ -393,7 +386,7 @@ describe('STORY-140 T23 — served-source string audit', () => {
     expect(editorSrc).not.toContain('jiraProject is required');
   });
 
-  it('no HTML/eval sink is present in the editor or logic module (MUST-140-3 / SR-139-1)', () => {
+  it('no HTML/eval sink is present in the editor or logic module', () => {
     const forbidden = /dangerouslySetInnerHTML|\binnerHTML\b|insertAdjacentHTML|document\.write|\beval\(|new Function|srcDoc/;
     // Strip block/line comments before scanning: the only expected match is the
     // doc-comment stating the prohibition, which is not an actual sink.

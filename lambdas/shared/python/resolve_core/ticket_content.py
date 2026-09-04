@@ -5,7 +5,7 @@ a ticket description in any ITSM platform format. This is the bridge
 between event processing (ticket_builder.py) and platform-specific
 rendering (jira_formatter.py, snow_formatter.py, etc.).
 
-STORY-053: Extracted from ticket_builder.py to enable multi-platform support.
+Extracted from ticket_builder.py to enable multi-platform support.
 
 Consumers: ticket_builder.py, jira_formatter.py, snow_formatter.py (Beta).
 Dependencies: Python stdlib only.

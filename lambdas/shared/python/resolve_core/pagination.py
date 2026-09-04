@@ -5,10 +5,8 @@ Large PLEs arrive as multiple Amazon EventBridge messages sharing the same
 the correct processing path based on page number and campaign existence,
 and provides resource-count helpers for atomic Amazon DynamoDB updates.
 
-Consumers: Processor Lambda (STORY-011).
+Consumers: Processor Lambda.
 Dependencies: Python stdlib only (no boto3, no third-party packages).
-
-Design reference: STORY-010 / 03_dumbledore_design.md §4.2.
 """
 
 from __future__ import annotations

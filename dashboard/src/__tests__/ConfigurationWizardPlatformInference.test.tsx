@@ -1,5 +1,5 @@
 /**
- * Unit tests for STORY-108: Wizard ServiceNow configured status fix
+ * Unit tests for the wizard ServiceNow configured status fix
  *
  * Tests that ConfigurationWizard correctly infers enabledPlatforms from
  * the config object when the /config/integrations API returns empty data.
@@ -63,7 +63,7 @@ function getPlatformCheckboxes(container: HTMLElement): [HTMLInputElement, HTMLI
   return [checkboxes[0] as HTMLInputElement, checkboxes[1] as HTMLInputElement];
 }
 
-describe('ConfigurationWizard — Platform Inference (STORY-108)', () => {
+describe('ConfigurationWizard — Platform Inference', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // /config/integrations returns empty platforms array — forces fallback to inference logic

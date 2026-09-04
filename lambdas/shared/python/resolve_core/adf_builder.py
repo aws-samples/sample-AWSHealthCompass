@@ -2,16 +2,14 @@
 
 Pure-Python functions that construct ADF JSON structures for JIRA Cloud
 REST API v3. Every function is stateless, side-effect-free, and handles
-None/empty inputs gracefully (IMPL-SEC-019-A3).
+None/empty inputs gracefully.
 
-IMPL-SEC-019-A1: This module MUST NOT import boto3, urllib3, os, or any
+This module MUST NOT import boto3, urllib3, os, or any
 I/O module. Only typing and stdlib data-structure modules.
 
-IMPL-SEC-019-A2: All external values (tag values, ARNs, descriptions)
+All external values (tag values, ARNs, descriptions)
 are placed inside {"type": "text", "text": value} nodes ONLY. They are
 NEVER used as ADF node types, attrs keys, or marks type values.
-
-Consumers: template_a.py, template_b.py (STORY-020).
 Dependencies: Python stdlib only.
 """
 
@@ -24,7 +22,7 @@ TextItem = Union[str, Tuple[str, List[str]]]
 
 
 def _safe_str(value: Any) -> str:
-    """Coerce value to non-None string. IMPL-SEC-019-A3."""
+    """Coerce value to non-None string."""
     if value is None:
         return ""
     return str(value)

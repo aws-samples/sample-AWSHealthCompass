@@ -56,7 +56,7 @@ const RECORD_TYPE_OPTIONS = [
   { label: 'Incident', value: 'incident' },
 ];
 
-// STORY-124 (RT-02): tag-source selector. Values are sent verbatim as `tagSource`
+// Tag-source selector. Values are sent verbatim as `tagSource`
 // and match the backend _VALID_TAG_SOURCES exactly — no transform layer. Resource
 // listed FIRST for discoverability (the marquee capability); default selection
 // stays 'account' (engine-aligned; zero behavior change on re-save).
@@ -69,7 +69,7 @@ const TAG_SOURCE_ITEMS = [
 const TAG_SOURCE_GROUP_DESCRIPTION =
   `Choose where ${APP_NAME} reads the routing tag. If the selected source has no value for an event, routing automatically falls back to the account-ID mapping, then the default project — no event is dropped.`;
 
-/** Normalize a stored tag source to a valid selector value (SR-018-06: unknown -> account). */
+/** Normalize a stored tag source to a valid selector value (unknown -> account). */
 function normalizeTagSource(raw: unknown): 'resource' | 'account' | 'both' {
   return raw === 'resource' || raw === 'both' ? raw : 'account';
 }
@@ -182,17 +182,17 @@ function parseApiError(error: unknown): string {
   return body;
 }
 
-// --- STORY-139 (§2.5): structured SNOW routing error-code surfacing ---
+// --- Structured SNOW routing error-code surfacing ---
 //
-// Presentation-only. Consumes STORY-137's structured error contract:
+// Presentation-only. Consumes the backend's structured error contract:
 //   - Default-save 400: top-level { error: { code, message } }
 //   - Per-row (account save / import preview) HTTP 200: data.validationErrors[]
 //     / data.invalid[], each row { accountId?, field, code, message }
 // All strings and sys_ids are treated as UNTRUSTED TEXT and rendered ONLY in
 // text positions (Alert body / FormField errorText / Table cell / Box) — never
-// as HTML, and never interpolated into href/onClick (SR-139-1/2/3).
+// as HTML, and never interpolated into href/onClick.
 
-/** Recognized SNOW routing error codes (STORY-137). */
+/** Recognized SNOW routing error codes. */
 interface RoutingErrorInfo {
   code: string;
   message: string;
@@ -204,7 +204,7 @@ interface RoutingErrorInfo {
 
 /**
  * Extract the JSON body from an apiFetch Error("API {status}: {body}") string
- * and attempt to recognize STORY-137's top-level `{ error: { code, message } }`
+ * and attempt to recognize the top-level `{ error: { code, message } }`
  * shape. Returns null when the body is absent or unrecognized (caller falls
  * back to the raw-string parseApiError behavior — unchanged).
  */
@@ -216,7 +216,7 @@ function parseRoutingError(error: unknown): RoutingErrorInfo | null {
     const body = JSON.parse(match[2]);
     const err = body?.error;
     if (err && typeof err.code === 'string') {
-      // SR-139-4: render ONLY the intended user-facing message field.
+      // Render ONLY the intended user-facing message field.
       return { code: err.code, message: typeof err.message === 'string' ? err.message : '' };
     }
   } catch {
@@ -227,7 +227,7 @@ function parseRoutingError(error: unknown): RoutingErrorInfo | null {
 
 /**
  * Collect per-row SNOW validation errors from a HTTP-200 account-save / import
- * response. STORY-137 returns them under data.validationErrors[] or
+ * response. The backend returns them under data.validationErrors[] or
  * data.invalid[] with { accountId?, field, code, message }. Only rows carrying
  * a recognized message are returned. Presentation-only.
  */
@@ -292,12 +292,12 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
   // --- Section C: Tag routing ---
   const [tagRoutingEnabled, setTagRoutingEnabled] = useState(false);
   const [tagRoutingKey, setTagRoutingKey] = useState('');
-  // STORY-124 (RT-02): which source the routing tag is read from. Default
+  // Which source the routing tag is read from. Default
   // 'account' matches the engine/handler default; always visible when tag
   // routing is enabled so the value is never silently persisted. Excluded from
   // saveDisabled (always valid); included in the dirty snapshot.
   const [tagSource, setTagSource] = useState<'resource' | 'account' | 'both'>('account');
-  // STORY-125 (RT-03): tag value → routing-target mapping editor state. The
+  // Tag value → routing-target mapping editor state. The
   // modal keeps its DOM mounted while visible, so lifted host state (mirroring
   // accountMappings) is used for a single controlled contract across surfaces.
   const [tagMappings, setTagMappings] = useState<TagMappingRow[]>([]);
@@ -314,9 +314,9 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // --- STORY-139 (§2.5): structured SNOW error surfacing state ---
+  // --- Structured SNOW error surfacing state ---
   // Populated from parseRoutingError / collectRowRoutingErrors on save; reset
-  // to null/{} on a clean save. All values render as inert text (SR-139-1/2/3).
+  // to null/{} on a clean save. All values render as inert text.
   const [defaultSnowGroupError, setDefaultSnowGroupError] = useState<string | null>(null);
   const [defaultSnowRecordTypeError, setDefaultSnowRecordTypeError] = useState<string | null>(null);
   const [snowConnectionError, setSnowConnectionError] = useState<string | null>(null);
@@ -358,8 +358,8 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
       const dsrt = rData?.snowRecordType || rData?.default?.snowRecordType || (summaryResp?.routing as any)?.snowRecordType || 'change_request';
       const tre = summaryResp?.routing?.tagRouting?.enabled ?? false;
       const trk = summaryResp?.routing?.tagRouting?.tagKey ?? '';
-      // STORY-124 (RT-02): read the persisted tag source; unknown/legacy/empty
-      // normalizes to 'account' (SR-018-06 alignment) without error.
+      // Read the persisted tag source; unknown/legacy/empty
+      // normalizes to 'account' without error.
       const trs = normalizeTagSource(summaryResp?.routing?.tagRouting?.tagSource);
 
       setDefaultProject(dp);
@@ -370,7 +370,7 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
       setTagRoutingKey(trk);
       setTagSource(trs);
 
-      // STORY-125 (RT-03): seed persisted tag→target mappings for round-trip.
+      // Seed persisted tag→target mappings for round-trip.
       const tagRows: TagMappingRow[] = (tagsResp?.mappings ?? []).map((m: any) => ({
         tagValue: m.tagValue ?? '',
         jiraProject: m.jiraProject ?? '',
@@ -431,7 +431,7 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
     if (jiraEnabled && !defaultProject.trim()) return true;
     if (snowEnabled && !defaultSnowGroupId.trim()) return true;
     if (tagRoutingEnabled && !tagRoutingKey.trim()) return true;
-    // STORY-125: block save while any tag-mapping row has an unresolved
+    // Block save while any tag-mapping row has an unresolved
     // client-side error (empty/invalid project or invalid tag value).
     if (tagRoutingEnabled && hasTagMappingClientErrors(tagMappings)) return true;
     return false;
@@ -462,10 +462,10 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
     const check = isValidAccountId(newAcctId.trim());
     if (!check.valid) { setAddError(check.error!); return; }
     if (!newJiraProject.trim() && jiraEnabled) { setAddError('JIRA project is required'); return; }
-    // STORY-139 (§2.3): symmetric SNOW-only add-row guard. Without this, a
+    // Symmetric SNOW-only add-row guard. Without this, a
     // SNOW-only user could add a mapping with an empty assignment group that
     // then fails opaquely at save. Client-side convenience check only — the
-    // server (STORY-137) remains authoritative (SR-139 note in 04_snape).
+    // server remains authoritative (server-side validation is the source of truth).
     if (snowEnabled && !jiraEnabled && !newSnowGroup.trim()) {
       setAddError('Assignment group sys_id is required'); return;
     }
@@ -595,7 +595,7 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
-    // STORY-139 (§2.5): clear prior structured SNOW errors before this attempt.
+    // Clear prior structured SNOW errors before this attempt.
     setDefaultSnowGroupError(null);
     setDefaultSnowRecordTypeError(null);
     setSnowConnectionError(null);
@@ -613,7 +613,7 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
       if (snowEnabled) { body.snowAssignmentGroupId = defaultSnowGroupId.trim(); body.snowRecordType = defaultSnowRecordType; }
       await apiFetch('/config/routing/default', { method: 'POST', body: JSON.stringify(body) });
     } catch (e: unknown) {
-      // STORY-139 (§2.5): map STORY-137 top-level { error: { code, message } }
+      // Map the top-level { error: { code, message } }
       // to the correct control. Falls back to the raw-string blob when the
       // body is unrecognized (unchanged behavior).
       const structured = parseRoutingError(e);
@@ -648,7 +648,7 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
 
       const importPayload = { format: 'json', data: JSON.stringify(validMappings) };
       const importResp = await apiFetch('/config/routing/import', { method: 'POST', body: JSON.stringify(importPayload) });
-      // STORY-139 (§2.5): per-row SNOW failures surface at HTTP 200 in the
+      // Per-row SNOW failures surface at HTTP 200 in the
       // import response's validationErrors[]/invalid[] — capture them for
       // inline placement keyed by accountId + snow-group field.
       for (const re of collectRowRoutingErrors(importResp)) {
@@ -692,7 +692,7 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
       });
     } catch (e: unknown) { failures.push(`Tag routing: ${parseApiError(e)}`); }
 
-    // Step 5: Tag→target mappings (STORY-125 / RT-03) — sequenced AFTER the
+    // Step 5: Tag→target mappings — sequenced AFTER the
     // strategy save. persistTagMappings runs DELETEs first then one upsert POST.
     // Only runs when tag routing is enabled (disabling never deletes mappings).
     // A partial/failed result appends to failures[] and flags rows so the modal
@@ -718,7 +718,7 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
 
     setSaving(false);
 
-    // STORY-139 (§2.5): commit any collected per-row SNOW errors.
+    // Commit any collected per-row SNOW errors.
     setRowSnowErrors(nextRowSnowErrors);
 
     if (failures.length > 0) {
@@ -869,8 +869,8 @@ export default function RoutingEditModal({ visible, onDismiss, onSave }: Routing
               </Alert>
             )}
 
-            {/* STORY-139 (§2.5): section-level ServiceNow precondition failure
-                (CFG_SNOW_NOT_CONFIGURED). Rendered as inert text (SR-139-1/2). */}
+            {/* Section-level ServiceNow precondition failure
+                (CFG_SNOW_NOT_CONFIGURED). Rendered as inert text. */}
             {snowConnectionError && (
               <Alert type="warning" dismissible onDismiss={() => setSnowConnectionError(null)}>
                 {snowConnectionError}

@@ -1,22 +1,19 @@
 /**
- * STORY-125 (RT-03) — wizard-level integration coverage: the tag-mapping editor
+ * Wizard-level integration coverage: the tag-mapping editor
  * wired into ConfigurationWizard's mount-load (GET round-trip) and Save &
- * Activate path (POST /config/routing/tags), with the STORY-113 nested shape
+ * Activate path (POST /config/routing/tags), with the nested shape
  * preserved on the wire.
  *
- * Source of truth: 01_hermione_story.md (AC-2/AC-3/AC-7), 10_harry_code.md
- * (saveAll Step 3.6), 12_luna_interface_validation.md.
- *
  * Coverage:
- *   AC-3 — GET /config/routing/tags is called on wizard mount (round-trip load)
- *   AC-2 — a mapping added in the tag-routing step is persisted via
- *          POST /config/routing/tags {mappings:[…]} on Save & Activate,
- *          sequenced AFTER the strategy POST and BEFORE /config/activate
- *   AC-7 — STORY-113 nested shape preserved: no flat `tagRoutingEnabled`, no
- *          nested `routing.tagRouting` object ever appears on the wire; the
- *          strategy body stays the flat {mode:'tag', tagKey}
+ *   - GET /config/routing/tags is called on wizard mount (round-trip load)
+ *   - a mapping added in the tag-routing step is persisted via
+ *     POST /config/routing/tags {mappings:[…]} on Save & Activate,
+ *     sequenced AFTER the strategy POST and BEFORE /config/activate
+ *   - nested shape preserved: no flat `tagRoutingEnabled`, no
+ *     nested `routing.tagRouting` object ever appears on the wire; the
+ *     strategy body stays the flat {mode:'tag', tagKey}
  *
- * Scaffold mirrors ConfigurationWizardTagRouting.story123.test.tsx.
+ * Scaffold mirrors the tag-routing strategy wizard suite.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -113,14 +110,14 @@ function allBodies(): any[] {
 
 beforeEach(() => { vi.clearAllMocks(); installHappyMock(); });
 
-describe('STORY-125 wizard integration — mount load + save wiring + STORY-113 shape', () => {
-  it('AC-3: GET /config/routing/tags is called on wizard mount (round-trip load)', async () => {
+describe('wizard integration — mount load + save wiring + nested shape', () => {
+  it('GET /config/routing/tags is called on wizard mount (round-trip load)', async () => {
     await renderWizard();
     // loadTagMappings() fires from a mount effect.
     await vi.waitFor(() => expect(callsTo('/config/routing/tags', 'GET').length).toBeGreaterThan(0));
   });
 
-  it('AC-2: a mapping added in the tag-routing step is POSTed to /config/routing/tags on Save & Activate, after strategy and before activate', async () => {
+  it('a mapping added in the tag-routing step is POSTed to /config/routing/tags on Save & Activate, after strategy and before activate', async () => {
     const user = userEvent.setup();
     await renderWizard();
     await advanceToRoutingStep(user);
@@ -150,7 +147,7 @@ describe('STORY-125 wizard integration — mount load + save wiring + STORY-113 
     expect(iTags).toBeLessThan(iActivate);
   });
 
-  it('AC-7: STORY-113 nested shape preserved — no flat tagRoutingEnabled and no nested routing.tagRouting on the wire', async () => {
+  it('nested shape preserved — no flat tagRoutingEnabled and no nested routing.tagRouting on the wire', async () => {
     const user = userEvent.setup();
     await renderWizard();
     await advanceToRoutingStep(user);
@@ -167,7 +164,7 @@ describe('STORY-125 wizard integration — mount load + save wiring + STORY-113 
       expect(b).not.toHaveProperty('tagRoutingEnabled');
       expect(b?.routing?.tagRouting).toBeUndefined();
     }
-    // The strategy body stays the flat {mode:'tag', tagKey} STORY-113 contract.
+    // The strategy body stays the flat {mode:'tag', tagKey} contract.
     const strategyBody = bodies.find(b => b.mode === 'tag');
     expect(strategyBody).toBeTruthy();
     expect(strategyBody.tagKey).toBe('Team');

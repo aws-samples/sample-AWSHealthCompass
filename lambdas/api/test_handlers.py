@@ -1,4 +1,4 @@
-"""Dry-run routing test API handler (STORY-077).
+"""Dry-run routing test API handler.
 
 Implements: POST /api/test/route — read-only routing simulation with trace.
 """

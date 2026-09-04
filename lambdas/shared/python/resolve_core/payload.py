@@ -3,9 +3,6 @@
 Provides two functions:
 - ``publish_or_offload`` — producer side: publishes inline or via S3.
 - ``resolve_payload`` — consumer side: fetches from S3 if needed.
-
-Design: STORY-012 / 03_dumbledore_design.md §5–§7.
-Security: 07_snape_impl_security_review.md SR-2, SR-3, F-IMPL-1/2/5.
 """
 
 from __future__ import annotations
@@ -145,7 +142,7 @@ def resolve_payload(
     Args:
         s3_client: boto3 S3 client.
         message_body: Parsed JSON message (may be inline or S3 reference).
-        expected_bucket: Expected S3 bucket name for validation (SR-3/B1).
+        expected_bucket: Expected S3 bucket name for validation.
 
     Returns:
         The full event payload dict.
@@ -166,13 +163,13 @@ def resolve_payload(
     bucket = message_body.get("s3_bucket", "")
     key = message_body.get("s3_key", "")
 
-    # SR-3 / IMPL-SEC-019-B1: Bucket must match expected
+    # Bucket must match expected
     if expected_bucket and bucket != expected_bucket:
         raise ValueError(
             f"S3 bucket mismatch: got {bucket!r}, expected {expected_bucket!r}"
         )
 
-    # SR-3 / IMPL-SEC-019-B2: Key character + path traversal validation
+    # Key character + path traversal validation
     if not key or ".." in key:
         raise ValueError(f"Invalid S3 key: {key!r}")
 

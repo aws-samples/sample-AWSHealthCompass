@@ -185,7 +185,7 @@ def _load_config() -> dict:
         if isinstance(pk_val, str) and pk_val.startswith("TAG_ROUTING#"):
             config[pk_val] = item
 
-    # Index SERVICE_ROUTING# items by pk for O(1) lookup (STORY-088).
+    # Index SERVICE_ROUTING# items by pk for O(1) lookup.
     for item in config.get("SERVICE_ROUTING_LIST", []):
         pk_val = item.get("pk", "")
         if isinstance(pk_val, str) and pk_val.startswith("SERVICE_ROUTING#"):
@@ -432,7 +432,7 @@ def _publish_to_sns(std_event: dict, campaign_id: str) -> None:
     """Publish standardized event to SNS, with S3 offload for large payloads.
 
     Delegates to ``resolve_core.payload.publish_or_offload`` for the
-    claim-check pattern (STORY-012).
+    claim-check pattern.
     """
     from resolve_core.payload import publish_or_offload
 
@@ -515,7 +515,7 @@ def _derive_routed_via(routing_result: dict, config: dict) -> str:
     Kept as a thin wrapper so any remaining call sites and tests referencing
     the processor-local name continue to work. The single source of truth for
     the write-side ``routedVia`` vocabulary now lives in
-    :func:`resolve_core.routing.derive_routed_via` (STORY-126 / RT-07), shared
+    :func:`resolve_core.routing.derive_routed_via`, shared
     with the Reconciliation Lambda so the two paths cannot drift.
     """
     return derive_routed_via(routing_result, config.get("ROUTING_STRATEGY"))
@@ -527,10 +527,10 @@ def _update_campaign_dispatch(
     """Update campaign with dispatch result fields.
 
     Writes ``dispatched``, ``dispatchMode``, ``matchedRule``, ``status``,
-    and ``updatedAt`` per design §5.1 Step 11 / FINDING-IMPL-09.
+    and ``updatedAt`` per design Step 11 / FINDING-IMPL-09.
 
     Raises on DynamoDB failure so the handler returns the message to SQS
-    instead of proceeding to SNS publish (FINDING-IMPL-14 / SR-006b).
+    instead of proceeding to SNS publish (FINDING-IMPL-14).
     """
     _campaigns_table.update_item(
         Key={"campaignId": campaign_id},
@@ -692,7 +692,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
         # --- (j) EVALUATE DISPATCH WINDOW ---
         dispatch_result = _evaluate_dispatch(detail, config, actionability_result)
-        # FINDING-IMPL-03 / SR-010a: explicit boolean gate.
+        # FINDING-IMPL-03: explicit boolean gate.
         if dispatch_result.get("dispatched") is not True:
             _update_campaign_dispatch(
                 campaign_id, False, dispatch_result, now,
@@ -728,7 +728,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
             # Still publish to SNS — event visible in dashboard as unroutable
 
         else:
-            # SR-018-09: Do NOT add routingTagKey or routingTagValue to this
+            # Do NOT add routingTagKey or routingTagValue to this
             # log line — tag values may contain team names or org structure.
             logger.info(
                 "Routing resolved — campaign_id=%s project=%s "
@@ -740,7 +740,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
                 event_arn,
             )
 
-        # --- (k.1) UPDATE RESOURCES WITH routedVia (STORY-071) ---
+        # --- (k.1) UPDATE RESOURCES WITH routedVia ---
         routed_via = _derive_routed_via(routing_result, config)
         routing_error = (
             f"No routing rule matched for account {affected_account}"

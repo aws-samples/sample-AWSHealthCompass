@@ -4,8 +4,6 @@ Provides a module-level cache that persists across warm Lambda invocations,
 reducing Secrets Manager API calls. Designed for OAuth platforms (ServiceNow,
 Azure DevOps) where tokens expire and need refresh. Static-token platforms
 (JIRA) can use this with infinite TTL or bypass it entirely.
-
-STORY-056: Beta prerequisite for ServiceNow OAuth token management.
 """
 
 from __future__ import annotations

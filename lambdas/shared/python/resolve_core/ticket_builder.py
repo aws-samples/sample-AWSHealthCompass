@@ -4,12 +4,12 @@ Builds summary, labels, due date, and ADF description from a
 standardized v2.0 event. Pure-Python functions — no I/O except
 the public build_template_a() which is called by the handler.
 
-IMPL-SEC-019-V4: Summary truncated to 255 chars.
-IMPL-SEC-019-V1: Account ID validated as 12 digits.
-IMPL-SEC-019-V2: Resource count validated as non-negative int.
-IMPL-SEC-019-A2: Tag values placed in text nodes only.
+Summary truncated to 255 chars.
+Account ID validated as 12 digits.
+Resource count validated as non-negative int.
+Tag values placed in text nodes only.
 
-STORY-053: Added build_ticket_content() and build_jira_ticket() for
+Provides build_ticket_content() and build_jira_ticket() for
 platform-agnostic content model extraction.
 
 Consumers: handler.py (JIRA Integration Lambda).
@@ -69,7 +69,7 @@ def build_template_a(
     """
     display_keys = tag_display_keys or _DEFAULT_TAG_DISPLAY_KEYS
     resource_count = len(resources) if isinstance(resources, list) else 0
-    # IMPL-SEC-019-V2: Ensure non-negative
+    # Ensure non-negative
     resource_count = max(0, resource_count)
 
     return {
@@ -92,7 +92,7 @@ def _build_summary(event: dict, routing: dict, resource_count: int) -> str:
     """Build the JIRA summary line.
 
     Format: [Compass] {service} {eventTypeCode} — {account} ({N} resources)
-    IMPL-SEC-019-V4: Truncated to 255 chars.
+    Truncated to 255 chars.
     """
     service = event.get("service", "Unknown")
     event_type = event.get("eventTypeCode", "")
@@ -102,7 +102,7 @@ def _build_summary(event: dict, routing: dict, resource_count: int) -> str:
         f"{TICKET_SUMMARY_PREFIX} {service} {event_type} — "
         f"{account} ({resource_count} resources)"
     )
-    # IMPL-SEC-019-V4: JIRA rejects >255 chars
+    # JIRA rejects >255 chars
     return summary[:_MAX_SUMMARY_LEN]
 
 
@@ -128,7 +128,7 @@ def _build_labels(event: dict, routing: dict) -> List[str]:
         labels.append(sanitize_for_label(f"campaign-{campaign_id}"))
 
     account = event.get("affectedAccount", "")
-    # IMPL-SEC-019-V1: Only add if valid 12-digit account ID
+    # Only add if valid 12-digit account ID
     if isinstance(account, str) and _ACCOUNT_ID_RE.match(account):
         labels.append(account)
 
@@ -256,7 +256,7 @@ def _build_account_tags_section(
     for key in display_keys:
         value = account_tags.get(key)
         if value:
-            # IMPL-SEC-019-A2: Tag values in text nodes only
+            # Tag values in text nodes only
             tag_paragraphs.append(adf_bold_value(f"{key}: ", str(value)))
 
     if not tag_paragraphs:
@@ -318,7 +318,7 @@ def _build_resource_table(
         }
 
         if has_tag_column:
-            # IMPL-SEC-019-A2: Tag value in text node only
+            # Tag value in text node only
             tags = r.get("resourceTags", {})
             tag_val = tags.get(tag_key, "") if isinstance(tags, dict) else ""
             rows.append([arn_node, str(tag_val), status_node, updated])
@@ -336,9 +336,9 @@ def _build_resource_table(
 def sanitize_description(description: Any) -> str:
     """Sanitize event description for ADF insertion.
 
-    SR-3a: Truncate to 30,000 chars.
-    SR-3b: Strip null bytes.
-    SR-3c: Fallback to default if None/empty/non-string.
+    Truncate to 30,000 chars.
+    Strip null bytes.
+    Fallback to default if None/empty/non-string.
     """
     if not description or not isinstance(description, str):
         return "No description provided."
@@ -349,7 +349,7 @@ def sanitize_description(description: Any) -> str:
 
 
 def _format_account_display(event: dict) -> str:
-    """Format account display string, truncated to 50 chars (SR-5c)."""
+    """Format account display string, truncated to 50 chars."""
     account_tags = event.get("accountTags") or {}
     name = account_tags.get("Name", "")
     account_id = event.get("affectedAccount", "")
@@ -401,8 +401,8 @@ def _build_summary_b(event: dict, routing: dict) -> str:
     """Build summary line for Template B.
 
     Format: {service}: {eventTypeCode} — {accountDisplay} / {routingTagValue}
-    SR-5a: routingTagValue truncated to 50 chars.
-    SR-5c: accountDisplay truncated to 50 chars.
+    routingTagValue truncated to 50 chars.
+    accountDisplay truncated to 50 chars.
     """
     service = event.get("service", "Unknown")
     code = event.get("eventTypeCode", "")
@@ -537,7 +537,7 @@ def _build_recommended_action(start_time: Optional[str]) -> dict:
 
 
 # ------------------------------------------------------------------
-# STORY-022: Resource Update — Summary + Burndown Comment
+# Resource Update — Summary + Burndown Comment
 # ------------------------------------------------------------------
 
 # ISEC-05: Control character and angle bracket stripping
@@ -564,7 +564,7 @@ def build_update_summary(
 ) -> str:
     """Build an updated JIRA summary line for a RESOURCE_UPDATE.
 
-    Uses campaign-level counts per design §3.5.
+    Uses campaign-level counts per design
 
     ISEC-04: Type validation on counts.
     ISEC-05: Summary component sanitization.
@@ -600,7 +600,7 @@ def build_burndown_comment(
 ) -> Optional[dict]:
     """Build an ADF burndown comment for a PLE campaign ticket.
 
-    A-JIRA-5: Daily burndown update showing progress and newly resolved
+    Daily burndown update showing progress and newly resolved
     resources.
 
     ISEC-04b: Division-by-zero guard on completion %.
@@ -679,7 +679,7 @@ def build_burndown_comment(
 
 
 # ------------------------------------------------------------------
-# STORY-053: Platform-Agnostic Content Model
+# Platform-Agnostic Content Model
 # ------------------------------------------------------------------
 
 from resolve_core.jira_formatter import JiraFormatter
@@ -693,7 +693,7 @@ def _build_resources_by_account(
 ) -> Optional[List[tuple]]:
     """Group resources by accountId for multi-account ticket rendering.
 
-    STORY-085: When a grouped ticket spans multiple accounts, returns
+    When a grouped ticket spans multiple accounts, returns
     a list of (account_id, account_name, resources) tuples sorted by
     account_id. Returns None if all resources belong to a single account.
     """

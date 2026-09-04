@@ -1,6 +1,6 @@
 """JIRA Integration Lambda — entrypoint.
 
-STORY-054: Thin entrypoint delegating to jira_handler.handle().
+Thin entrypoint delegating to jira_handler.handle().
 Proxies module-level attributes to jira_handler for test compatibility.
 
 Trigger: SQS JIRA Queue (batch_size=1, ReportBatchItemFailures=true).

@@ -8,7 +8,7 @@ Same pattern as jira_integration/handler.py.
 Trigger: SQS ServiceNow Queue (batch_size=1, ReportBatchItemFailures=true).
 Runtime: Python 3.12, 256 MB, 5 min timeout, reserved concurrency 2.
 
-STORY-093: Multi-platform routing — gate on routing.platforms.servicenow.
+Multi-platform routing — gate on routing.platforms.servicenow.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ _enabled_platforms: Optional[list] = None
 
 
 def _get_enabled_platforms() -> list:
-    """Load and cache enabled platforms from ConfigTable (STORY-093).
+    """Load and cache enabled platforms from ConfigTable.
 
     ServiceNow defaults to DISABLED (fail-closed) if INTEGRATIONS_ENABLED
     is missing, unlike JIRA which defaults to enabled.
@@ -98,7 +98,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
     Returns {"batchItemFailures": []} on success, or
     {"batchItemFailures": [{"itemIdentifier": messageId}]} on failure.
     """
-    # STORY-093: Global kill switch — fail-closed for ServiceNow
+    # Global kill switch — fail-closed for ServiceNow
     if "servicenow" not in _get_enabled_platforms():
         logger.debug("ServiceNow platform globally disabled — skipping")
         return {"batchItemFailures": []}
@@ -112,7 +112,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
             # SNS wraps the payload in a Message field
             payload = json.loads(body["Message"]) if "Message" in body else body
 
-            # STORY-093: Per-event routing gate
+            # Per-event routing gate
             routing = payload.get("routing", {})
             platforms = routing.get("platforms", {})
             snow_target = platforms.get("servicenow")
@@ -163,7 +163,7 @@ def _process_event(client: ServiceNowClient, payload: dict, snow_target: dict) -
         logger.warning("snow_no_campaign_id — skipping")
         return
 
-    # STORY-093: Extract routing target from platforms map
+    # Extract routing target from platforms map
     assignment_group_id = snow_target["assignmentGroupId"]
     record_type = snow_target.get("recordType", "change_request")
 
@@ -232,7 +232,7 @@ def _process_event(client: ServiceNowClient, payload: dict, snow_target: dict) -
             ),
             ExpressionAttributeNames={
                 "#t": "tickets",
-                "#platform": "servicenow",  # SEC-111-1: hardcoded platform key
+                "#platform": "servicenow",  # hardcoded platform key
             },
             ExpressionAttributeValues={
                 ":ticket_data": ticket_data,
@@ -245,7 +245,7 @@ def _process_event(client: ServiceNowClient, payload: dict, snow_target: dict) -
     except ClientError as exc:
         error_code = exc.response.get("Error", {}).get("Code", "")
         if error_code == "ValidationException":
-            # Fallback: tickets map doesn't exist (pre-STORY-111 item)
+            # Fallback: tickets map doesn't exist (legacy item)
             resources_table.update_item(
                 Key={"campaignId": campaign_id, "trackingKey": tracking_key},
                 UpdateExpression=(

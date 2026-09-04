@@ -1,4 +1,4 @@
-"""Dispatch window & activation API handlers (STORY-030).
+"""Dispatch window & activation API handlers.
 
 Implements 6 endpoints for Amazon DynamoDB dispatch configuration:
   POST   /api/config/dispatch                — Save dispatch preset + rules
@@ -9,10 +9,10 @@ Implements 6 endpoints for Amazon DynamoDB dispatch configuration:
   POST   /api/config/activate                — Validate prerequisites & activate
 
 Security notes:
-  SEC-030-01: Pattern regex enforced before every DynamoDB write.
-  SEC-030-02: No jira_secret_arn in any API response (allowlist).
-  SEC-030-05.3: ruleId validated before pk construction.
-  SEC-030-04: No customer_account_id in logs or responses.
+  Pattern regex enforced before every DynamoDB write.
+  No jira_secret_arn in any API response (allowlist).
+  ruleId validated before pk construction.
+  No customer_account_id in logs or responses.
   FINDING-IMPL-01: Empty prefix guard in evaluate_dispatch.
 """
 from __future__ import annotations
@@ -40,8 +40,8 @@ except ImportError:
         validate_rule_id,
     )
 
-# STORY-136: shared platform-resolution seam (single source of truth).
-# STORY-141 consumes resolve_platforms/operative_platform + extract_routing_target;
+# shared platform-resolution seam (single source of truth).
+# consumes resolve_platforms/operative_platform + extract_routing_target;
 # it MUST NOT re-derive platform resolution.
 try:
     from resolve_core.config_schema import (
@@ -131,7 +131,7 @@ def _gen_rule_id() -> str:
 
 
 def _dispatch_warning(mode, rules) -> str | None:
-    """Generate warning text per Luna §1.2."""
+    """Generate warning text"""
     if mode is None:
         return "Dispatch window not configured. Default behavior: all actionable events create tickets."
     if mode == "custom":
@@ -153,7 +153,7 @@ def _rule_to_api(item: dict) -> dict:
 
 
 def _scan_dispatch_rules() -> list[dict]:
-    """Scan all DISPATCH_RULE# items with ProjectionExpression (SEC-030-05)."""
+    """Scan all DISPATCH_RULE# items with ProjectionExpression."""
     rules = []
     scan_kwargs = {
         "FilterExpression": Attr("pk").begins_with("DISPATCH_RULE#"),
@@ -184,7 +184,7 @@ def handle_dispatch_save(event, context):
         return _error(400, "CFG_INVALID_DISPATCH_MODE",
                       "mode must be 'all', 'ple_only', or 'custom'.")
 
-    # STORY-076: Actionability filter
+    # Actionability filter
     actionability_filter = body.get("actionabilityFilter", "all_actionable")
     if actionability_filter not in ("all_actionable", "action_required_only"):
         return _error(400, "INVALID_PARAM", "actionabilityFilter must be 'all_actionable' or 'action_required_only'")
@@ -218,7 +218,7 @@ def handle_dispatch_save(event, context):
             if not isinstance(rule.get("enabled"), bool):
                 return _error(400, "CFG_INVALID_REQUEST", f"Rule at index {i}: 'enabled' must be a boolean.")
 
-            # Validate ruleId if provided (SEC-030-05.3)
+            # Validate ruleId if provided
             rule_id = rule.get("ruleId", "")
             if rule_id and not validate_rule_id(rule_id):
                 return _error(400, "CFG_INVALID_REQUEST",
@@ -309,7 +309,7 @@ def handle_dispatch_rule_update(event, context):
     """Update a single dispatch rule (partial update)."""
     rule_id = (event.get("pathParameters") or {}).get("ruleId", "")
 
-    # SEC-030-05.3: Validate ruleId before pk construction
+    # Validate ruleId before pk construction
     if not validate_rule_id(rule_id):
         return _error(400, "CFG_INVALID_REQUEST",
                       "ruleId must match [a-zA-Z0-9_-] and be 1-64 chars.")
@@ -381,7 +381,7 @@ def handle_dispatch_rule_delete(event, context):
     """Delete a single dispatch rule."""
     rule_id = (event.get("pathParameters") or {}).get("ruleId", "")
 
-    # SEC-030-05.3: Validate ruleId before pk construction
+    # Validate ruleId before pk construction
     if not validate_rule_id(rule_id):
         return _error(400, "CFG_INVALID_REQUEST",
                       "ruleId must match [a-zA-Z0-9_-] and be 1-64 chars.")
@@ -409,7 +409,7 @@ def handle_config_status(event, context):
     table = _config_table()
 
     # Batch read fixed keys
-    # STORY-141: add SNOW_CONNECTION so readiness can gate on the operative
+    # add SNOW_CONNECTION so readiness can gate on the operative
     # platform's connection without an extra round-trip. Platform resolution
     # itself routes through resolve_platforms() below (single source of truth).
     try:
@@ -436,7 +436,7 @@ def handle_config_status(event, context):
     routing_strategy = items.get("ROUTING_STRATEGY")
     dispatch_preset = items.get("DISPATCH_PRESET")
 
-    # STORY-141 / AC-141.3: resolve the operative platform via the STORY-136
+    # resolve the operative platform via the shared
     # seam. resolve_platforms fails safe to ["jira"] on ClientError, so a
     # transient ConfigTable error routes readiness through the JIRA predicates
     # (which a SNOW-only deploy cannot satisfy) — never a spurious ready:true.
@@ -470,15 +470,15 @@ def handle_config_status(event, context):
         custom_rule_count = len(rules)
         enabled_rule_count = sum(1 for r in rules if r.get("enabled"))
 
-    # Build response — SEC-030-02: allowlist JIRA fields (no jira_secret_arn)
-    # MUST-3: read ONLY the `validated` flag from the connection item; never
+    # Build response —: allowlist JIRA fields (no jira_secret_arn)
+    # read ONLY the `validated` flag from the connection item; never
     # surface snow_secret_arn / secret / token / password (SNOW allowlist
     # mirrors the JIRA one — no new field added to the response).
-    #
-    # STORY-141 / MUST-1: per-platform connection predicate — bool(validated).
+
+    # per-platform connection predicate — bool(validated).
     # Absence or falsy `validated` -> not complete (no default-to-true).
     connection_complete = bool(conn_item and conn_item.get("validated"))
-    # STORY-141 / MUST-2 / AC-141.3: real-target predicate, not presence-only.
+    # real-target predicate, not presence-only.
     # extract_routing_target returns None unless the platform's required field
     # is truthy (SNOW: snow_assignment_group_id; JIRA: jira_project), so a
     # stale/foreign ROUTING_DEFAULT cannot falsely satisfy readiness.
@@ -496,8 +496,8 @@ def handle_config_status(event, context):
     strategy = routing_strategy.get("mode") if routing_strategy else None
     routing_tag_key = routing_strategy.get("tag_key") if routing_strategy else None
 
-    # STORY-141 / AC-141.2 / §2.1: platform-selected warning wording. JIRA/dual
-    # branch is the VERBATIM legacy string set (no-regression, AC-141.4); SNOW-
+    # platform-selected warning wording. JIRA/dual
+    # branch is the VERBATIM legacy string set; SNOW-
     # only branch is ServiceNow-worded. W4/W5 (dispatch) are platform-agnostic.
     _WARN = {
         "jira": {
@@ -564,15 +564,15 @@ def handle_activate(event, context):
     """Validate prerequisites and activate the integration."""
     table = _config_table()
 
-    # STORY-141 / AC-141.3: gate against the operative platform (STORY-136 seam).
+    # gate against the operative platform.
     # resolve_platforms fails safe to ["jira"] on ClientError, so a transient
     # read error routes gating through the JIRA predicates (unsatisfiable for a
-    # SNOW-only deploy) and never activates on error (MUST-5).
+    # SNOW-only deploy) and never activates on error.
     platform = operative_platform(resolve_platforms(table))
 
-    # STORY-141 / §2.2: platform-aware activation error triplets. JIRA branch is
-    # the VERBATIM legacy code/message/detail (no-regression, AC-141.4); SNOW
-    # branch reuses CFG_SNOW_NOT_CONFIGURED (registered by STORY-137, §2.4) and
+    # platform-aware activation error triplets. JIRA branch is
+    # the VERBATIM legacy code/message/detail; SNOW
+    # branch reuses CFG_SNOW_NOT_CONFIGURED (registered elsewhere) and
     # introduces CFG_SNOW_NOT_VALIDATED / CFG_DEFAULT_GROUP_MISSING as analogues.
     _ERR = {
         "jira": {
@@ -603,7 +603,7 @@ def handle_activate(event, context):
     errspec = _ERR[platform]
 
     # Prerequisite 1: operative platform's connection configured and validated.
-    # MUST-3: read only the `validated` flag; never surface/log the secret ARN.
+    # read only the `validated` flag; never surface/log the secret ARN.
     try:
         resp = table.get_item(Key={"pk": errspec["conn_pk"]})
     except ClientError:
@@ -617,7 +617,7 @@ def handle_activate(event, context):
         return _error(400, *errspec["conn_not_validated"])
 
     # Prerequisite 2: default routing target present for THIS platform.
-    # MUST-2 / AC-141.3: real target via extract_routing_target, not presence.
+    # real target via extract_routing_target, not presence.
     try:
         resp = table.get_item(Key={"pk": "ROUTING_DEFAULT"})
     except ClientError:
@@ -628,7 +628,7 @@ def handle_activate(event, context):
     if routing_default is None or extract_routing_target(routing_default, platform) is None:
         return _error(400, *errspec["routing_missing"])
 
-    # Auto-default dispatch if not configured (design §9.5)
+    # Auto-default dispatch if not configured (design)
     now = _now_iso()
     try:
         table.put_item(
@@ -662,10 +662,10 @@ def handle_activate(event, context):
         "activatedAt": now,
         "dispatchMode": dispatch_mode,
         "summary": {
-            # STORY-141: `conn` is the operative platform's connection item.
+            # `conn` is the operative platform's connection item.
             # For JIRA/dual this is JIRA_CONNECTION (byte-identical to legacy);
-            # for SNOW-only it lacks jira_base_url -> "" (harmless, §1.3). Shape
-            # unchanged; secret ARN never read (MUST-3).
+            # for SNOW-only it lacks jira_base_url -> "". Shape
+            # unchanged; secret ARN never read.
             "jiraBaseUrl": conn.get("jira_base_url", ""),
             "defaultProject": routing_default.get("jira_project", ""),
             "snowAssignmentGroupId": routing_default.get("snow_assignment_group_id", ""),

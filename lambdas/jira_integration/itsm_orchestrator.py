@@ -1,6 +1,6 @@
 """Platform-agnostic ITSM orchestration — routes events to ticket creation.
 
-STORY-054: Extracted from handler.py. Contains ZERO platform-specific imports.
+Extracted from handler.py. Contains ZERO platform-specific imports.
 Receives ITSMClient and ContentFormatter via dependency injection.
 
 Responsibilities:
@@ -158,7 +158,7 @@ def _write_ticket_to_resources(
                 ),
                 ExpressionAttributeNames={
                     "#t": "tickets",
-                    "#platform": "jira",  # SEC-111-1: hardcoded platform key
+                    "#platform": "jira",  # hardcoded platform key
                 },
                 ExpressionAttributeValues={
                     ":ticket_data": ticket_data,
@@ -170,7 +170,7 @@ def _write_ticket_to_resources(
         except ClientError as exc:
             error_code = exc.response.get("Error", {}).get("Code", "")
             if error_code == "ValidationException":
-                # Fallback: tickets map doesn't exist (pre-STORY-111 item)
+                # Fallback: tickets map doesn't exist (legacy item)
                 try:
                     resources_table.update_item(
                         Key={"campaignId": campaign_id, "trackingKey": tracking_key},
@@ -296,7 +296,7 @@ def _write_bulk_results(
                 ),
                 ExpressionAttributeNames={
                     "#t": "tickets",
-                    "#platform": "jira",  # SEC-111-1: hardcoded platform key
+                    "#platform": "jira",  # hardcoded platform key
                 },
                 ConditionExpression=(
                     "attribute_not_exists(ticketId) OR ticketId = :empty"
@@ -318,7 +318,7 @@ def _write_bulk_results(
                     campaign_id[:_MAX_LOG_LEN], tk[:_MAX_LOG_LEN],
                 )
             elif error_code == "ValidationException":
-                # Fallback: tickets map doesn't exist (pre-STORY-111 item)
+                # Fallback: tickets map doesn't exist (legacy item)
                 try:
                     resources_table.update_item(
                         Key={"campaignId": campaign_id, "trackingKey": tk},

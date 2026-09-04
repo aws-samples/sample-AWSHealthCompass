@@ -1,4 +1,4 @@
-"""CMDB routing configuration API handlers (STORY-087).
+"""CMDB routing configuration API handlers.
 
 Endpoints:
   GET  /api/config/cmdb-routing  — Return CMDB routing config

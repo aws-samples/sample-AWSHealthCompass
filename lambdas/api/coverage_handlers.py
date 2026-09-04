@@ -1,4 +1,4 @@
-"""Routing coverage API handlers (STORY-071).
+"""Routing coverage API handlers.
 
 Implements 2 endpoints for routing coverage metrics:
   GET /api/routing/coverage             — Aggregated routing coverage breakdown
@@ -26,7 +26,7 @@ CORS_HEADERS = {
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 }
 
-# SEC-071-04: Max scan pages to prevent runaway
+# Max scan pages to prevent runaway
 _MAX_SCAN_PAGES = 10
 _UNROUTABLE_LIMIT = 100
 

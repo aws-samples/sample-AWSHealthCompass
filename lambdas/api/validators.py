@@ -1,21 +1,21 @@
 """Input validation for API endpoints.
 
 Pure functions — no AWS SDK calls, no side effects.
-SSRF protection per IMPL-SEC-027-C1.
-Field length limits per IMPL-SEC-027-H1.
-Routing validation per STORY-028.
+SSRF protection.
+Field length limits.
+Routing validation.
 """
 from __future__ import annotations
 
 import re
 from urllib.parse import urlparse
 
-# IMPL-SEC-027-C1: Strict hostname regex — only {subdomain}.atlassian.net
+# Strict hostname regex — only {subdomain}.atlassian.net
 _ATLASSIAN_HOST_RE = re.compile(
     r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.atlassian\.net$"
 )
 
-# IMPL-SEC-027-H1: Field length limits
+# Field length limits
 _MAX_URL_LEN = 253
 _MAX_EMAIL_LEN = 254
 _MAX_TOKEN_LEN = 512
@@ -77,7 +77,7 @@ def normalize_base_url(url: str) -> str:
 def _validate_jira_url(url: str) -> dict | None:
     """Validate JIRA Cloud URL. Returns error dict or None.
 
-    IMPL-SEC-027-C1: SSRF protection checklist:
+    SSRF protection checklist:
     - Scheme must be https
     - No explicit port
     - Hostname must match *.atlassian.net exactly
@@ -95,7 +95,7 @@ def _validate_jira_url(url: str) -> dict | None:
     except Exception:
         return {"code": "CFG_INVALID_JIRA_URL", "message": "Invalid URL format"}
 
-    # IMPL-SEC-027-C1: No explicit port
+    # No explicit port
     if parsed.port is not None:
         return {
             "code": "CFG_INVALID_JIRA_URL",
@@ -104,7 +104,7 @@ def _validate_jira_url(url: str) -> dict | None:
 
     hostname = parsed.hostname or ""
 
-    # IMPL-SEC-027-C1: Strict hostname match
+    # Strict hostname match
     if not _ATLASSIAN_HOST_RE.match(hostname):
         return {
             "code": "CFG_INVALID_JIRA_URL",
@@ -114,7 +114,7 @@ def _validate_jira_url(url: str) -> dict | None:
             ),
         }
 
-    # IMPL-SEC-027-C1: No path beyond /
+    # No path beyond /
     if parsed.path and parsed.path not in ("", "/"):
         return {
             "code": "CFG_INVALID_JIRA_URL",
@@ -125,7 +125,7 @@ def _validate_jira_url(url: str) -> dict | None:
 
 
 # ===================================================================
-# Routing validation (STORY-028)
+# Routing validation
 # ===================================================================
 
 _ACCOUNT_ID_RE = re.compile(r"^\d{12}$")
@@ -181,7 +181,7 @@ def validate_routing_default(body: dict | None, *, platform: str = "jira") -> li
             return [{"code": "CFG_INVALID_JIRA_PROJECT",
                      "message": "jiraProject must be 2-10 uppercase alphanumeric characters starting with a letter"}]
 
-    # Optional: ServiceNow routing fields (STORY-055, Security C-1/C-2/C-3)
+    # Optional: ServiceNow routing fields
     snow_errors = validate_snow_routing_fields(body)
     if snow_errors:
         return snow_errors
@@ -238,7 +238,7 @@ def validate_routing_account(body: dict | None, *, platform: str = "jira") -> li
         return [{"code": "CFG_INVALID_ACCOUNT_NAME",
                  "message": f"accountName exceeds {_MAX_ACCOUNT_NAME_LEN} characters"}]
 
-    # Optional: ServiceNow routing fields (STORY-055, Security C-1/C-2/C-3)
+    # Optional: ServiceNow routing fields
     snow_errors = validate_snow_routing_fields(body)
     if snow_errors:
         return snow_errors
@@ -247,7 +247,7 @@ def validate_routing_account(body: dict | None, *, platform: str = "jira") -> li
 
 
 # ===================================================================
-# ServiceNow routing field validation (STORY-055, Security C-1/C-2/C-3)
+# ServiceNow routing field validation
 # ===================================================================
 
 _SNOW_GROUP_ID_RE = re.compile(r"^[a-f0-9]{32}$")

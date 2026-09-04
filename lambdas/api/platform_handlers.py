@@ -1,4 +1,4 @@
-"""Platform selection API handlers (STORY-065).
+"""Platform selection API handlers.
 
 Implements:
   GET  /api/config/platform — Return active platform + connection status.
@@ -140,7 +140,7 @@ def handle_platform_post(event, context):
             "platform": target_platform,
             "switched_at": now,
         })
-        # STORY-093: Also write INTEGRATIONS_ENABLED for backward compat
+        # Also write INTEGRATIONS_ENABLED for backward compat
         config.put_item(Item={
             "pk": "INTEGRATIONS_ENABLED",
             "platforms": [target_platform],
@@ -177,12 +177,12 @@ def handle_platform_post(event, context):
 
 
 # ===================================================================
-# GET /api/config/integrations (STORY-093)
+# GET /api/config/integrations
 # ===================================================================
 
 
 def handle_integrations_get(event, context):
-    """Return enabled platforms and connection statuses (STORY-093 AC-5)."""
+    """Return enabled platforms and connection statuses."""
     config = _config_table()
 
     # Read INTEGRATIONS_ENABLED (or fall back to ITSM_PLATFORM)
@@ -220,7 +220,7 @@ def handle_integrations_get(event, context):
 
 
 # ===================================================================
-# PUT /api/config/integrations (STORY-093)
+# PUT /api/config/integrations
 # ===================================================================
 
 
@@ -228,25 +228,25 @@ def handle_integrations_put(event, context):
     """Enable/disable platforms. Pre-condition: each must be validated.
 
     Security hardening:
-      SEC-093-01: Audit log on every PUT.
-      SEC-093-03: Type check + length cap on platforms array.
+      Audit log on every PUT.
+      Type check + length cap on platforms array.
     """
     body = _parse_body(event)
     if not body or not isinstance(body, dict):
         return _error(400, "CFG_INVALID_REQUEST", "Request body must be valid JSON")
 
-    # SEC-093-03: Type check on array
+    # Type check on array
     raw_platforms = body.get("platforms")
     if not isinstance(raw_platforms, list):
         return _error(400, "CFG_INVALID_REQUEST",
                       "Request body must include 'platforms' array")
 
-    # SEC-093-03: Max length cap
+    # Max length cap
     if len(raw_platforms) > 10:
         return _error(400, "CFG_INVALID_REQUEST",
                       "platforms array exceeds maximum of 10 items")
 
-    # SEC-093-03: Element type check + allowlist filter
+    # Element type check + allowlist filter
     requested = [p for p in raw_platforms
                  if isinstance(p, str) and p in _VALID_PLATFORMS]
     if not requested:
@@ -266,7 +266,7 @@ def handle_integrations_put(event, context):
             invalid.append(p)
 
     if invalid:
-        # SEC-093-01: Audit log for rejected attempt
+        # Audit log for rejected attempt
         logger.warning(json.dumps({
             "audit": True,
             "action": "INTEGRATIONS_UPDATE",
@@ -290,7 +290,7 @@ def handle_integrations_put(event, context):
         logger.exception("DynamoDB write failed for INTEGRATIONS_ENABLED")
         return _error(500, "SYS_INTERNAL_ERROR", "Failed to update integrations.")
 
-    # SEC-093-01: Audit log for successful update
+    # Audit log for successful update
     logger.warning(json.dumps({
         "audit": True,
         "action": "INTEGRATIONS_UPDATE",

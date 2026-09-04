@@ -4,13 +4,14 @@ Handles Basic auth, exponential backoff with jitter on 429/5xx,
 redirect rejection, and structured error reporting. Uses urllib3
 (available in Lambda runtime) — no external dependencies.
 
-IMPL-SEC-019-C1: __repr__ excludes credentials.
-IMPL-SEC-019-C2: JiraApiError excludes auth headers.
-IMPL-SEC-019-C3: Retry logs exclude headers/body.
-IMPL-SEC-019-C4: URL validated on construction.
-IMPL-SEC-019-C5: Redirects rejected on all requests.
-IMPL-SEC-019-C6: TLS verification enabled (default urllib3).
-IMPL-SEC-019-C7: Connection pool created once per instance.
+Security properties:
+- __repr__ excludes credentials.
+- JiraApiError excludes auth headers.
+- Retry logs exclude headers/body.
+- URL validated on construction.
+- Redirects rejected on all requests.
+- TLS verification enabled (default urllib3).
+- Connection pool created once per instance.
 
 Consumers: handler.py (JIRA Integration Lambda).
 Dependencies: urllib3 (Lambda runtime), Python stdlib.
@@ -32,7 +33,7 @@ import urllib3
 
 logger = logging.getLogger("resolve_core")
 
-# IMPL-SEC-019-C4: Reuse the same strict pattern from api/validators.py
+# Reuse the same strict pattern from api/validators.py
 _ATLASSIAN_HOST_RE = re.compile(
     r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.atlassian\.net$"
 )
@@ -72,7 +73,7 @@ class BulkCreateResult:
 class JiraApiError(Exception):
     """JIRA API error with status and parsed response body.
 
-    IMPL-SEC-019-C2: Does NOT store request headers or auth string.
+    Does NOT store request headers or auth string.
     __str__ returns only status and endpoint path — no body dump.
     """
 
@@ -101,7 +102,7 @@ class JiraNotFoundError(JiraApiError):
 def _validate_jira_url(url: str) -> str:
     """Validate and normalize a JIRA Cloud base URL.
 
-    IMPL-SEC-019-C4: SSRF protection — only *.atlassian.net over HTTPS.
+    SSRF protection — only *.atlassian.net over HTTPS.
     Raises ValueError on invalid URL.
     """
     if not isinstance(url, str) or not url.strip():
@@ -135,8 +136,8 @@ def _validate_jira_url(url: str) -> str:
 class JiraClient:
     """JIRA Cloud REST API v3 client with retry and rate limiting.
 
-    IMPL-SEC-019-C1: __repr__ excludes credentials.
-    IMPL-SEC-019-C7: PoolManager created once per instance.
+    __repr__ excludes credentials.
+    PoolManager created once per instance.
     """
 
     def __init__(self, base_url: str, email: str, api_token: str):
@@ -151,7 +152,7 @@ class JiraClient:
             ValueError: If base_url fails validation.
         """
         self._base_url = _validate_jira_url(base_url)
-        # IMPL-SEC-019-C6: Default urllib3 PoolManager verifies TLS.
+        # Default urllib3 PoolManager verifies TLS.
         self._http = urllib3.PoolManager(
             timeout=urllib3.Timeout(
                 connect=_CONNECT_TIMEOUT, read=_READ_TIMEOUT,
@@ -164,7 +165,7 @@ class JiraClient:
         self._auth_header = f"Basic {auth_bytes}"
 
     def __repr__(self) -> str:
-        # IMPL-SEC-019-C1: No credentials in repr
+        # No credentials in repr
         return f"<JiraClient base_url={self._base_url!r}>"
 
     def __str__(self) -> str:
@@ -271,7 +272,7 @@ class JiraClient:
     ) -> dict:
         """Search issues via POST /rest/api/3/search/jql.
 
-        STORY-122: /rest/api/3/search was permanently removed by
+        /rest/api/3/search was permanently removed by
         Atlassian (CHANGE-2046, HTTP 410 Gone). This method now calls
         the replacement endpoint, which uses cursor-based pagination
         (nextPageToken/isLast) instead of offset-based pagination
@@ -317,7 +318,7 @@ class JiraClient:
         """Get an approximate issue count via
         POST /rest/api/3/search/approximate-count.
 
-        STORY-122: replacement for the old pattern of calling
+        Replacement for the old pattern of calling
         search_issues(jql, fields=["key"], max_results=0) and reading
         the removed "total" field. This endpoint returns only a count
         — no issues array — in a single call. Atlassian documents the
@@ -360,8 +361,8 @@ class JiraClient:
     ) -> dict:
         """Make an HTTP request with exponential backoff on retryable errors.
 
-        IMPL-SEC-019-C3: Retry logs exclude headers and body.
-        IMPL-SEC-019-C5: redirect=False on all requests.
+        Retry logs exclude headers and body.
+        redirect=False on all requests.
         """
         url = f"{self._base_url}{path}"
         encoded_body = json.dumps(body, separators=(",", ":"), default=str)
@@ -376,7 +377,7 @@ class JiraClient:
 
         for attempt in range(_MAX_RETRIES):
             try:
-                # IMPL-SEC-019-C5: No redirects
+                # No redirects
                 response = self._http.request(
                     method, url,
                     body=encoded_body.encode("utf-8"),
@@ -385,7 +386,7 @@ class JiraClient:
                 )
             except (urllib3.exceptions.MaxRetryError,
                     urllib3.exceptions.TimeoutError) as exc:
-                # IMPL-SEC-019-C3: Log type only, no headers/body
+                # Log type only, no headers/body
                 logger.warning(
                     "JIRA connection error — attempt=%d/%d path=%s "
                     "error_type=%s",
@@ -406,7 +407,7 @@ class JiraClient:
 
             status = response.status
 
-            # IMPL-SEC-019-C5: Reject redirects
+            # Reject redirects
             if 300 <= status < 400:
                 location = response.headers.get("Location", "REDACTED")
                 logger.warning(
@@ -454,7 +455,7 @@ class JiraClient:
             if attempt >= max_for_status - 1:
                 break
 
-            # IMPL-SEC-019-C3: Log status and retry-after only
+            # Log status and retry-after only
             retry_after = response.headers.get("Retry-After")
             logger.warning(
                 "JIRA retryable error — status=%d attempt=%d/%d "

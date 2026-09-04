@@ -126,7 +126,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
   const [snowTesting, setSnowTesting] = useState(false);
   const [snowTestResult, setSnowTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // --- STORY-102: Credential edit mode flags ---
+  // --- Credential edit mode flags ---
   const [jiraTokenEditMode, setJiraTokenEditMode] = useState(false);
   const [snowSecretEditMode, setSnowSecretEditMode] = useState(false);
   const [snowPasswordEditMode, setSnowPasswordEditMode] = useState(false);
@@ -149,7 +149,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // --- Derived values ---
-  // STORY-102: canTest allows testing with stored credentials (sentinel state)
+  // canTest allows testing with stored credentials (sentinel state)
   const jiraCredsConfigured = !!(config.jira?.credentialsConfigured || config.jira?.validated);
   const snowCredsConfigured = !!(config.servicenow?.credentialsConfigured || config.servicenow?.validated);
 
@@ -186,7 +186,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
     setSnowClientSecret(''); // SEC-8: ALWAYS blank
     setSnowUsername(config.servicenow?.username ?? '');
     setSnowPassword(''); // SEC-8: ALWAYS blank
-    // STORY-102: Reset credential edit modes (start in sentinel state if configured)
+    // Reset credential edit modes (start in sentinel state if configured)
     setJiraTokenEditMode(false);
     setSnowSecretEditMode(false);
     setSnowPasswordEditMode(false);
@@ -216,7 +216,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
 
   /**
    * Test JIRA connection.
-   * STORY-102: If credentials unchanged (sentinel state), omit apiToken from body.
+   * If credentials unchanged (sentinel state), omit apiToken from body.
    * Backend uses stored credentials for the test.
    * SEC-3: No credential values logged.
    */
@@ -247,7 +247,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
 
   /**
    * Test ServiceNow connection via POST /config/servicenow/test.
-   * STORY-102: Omit credential fields that are unchanged (sentinel state).
+   * Omit credential fields that are unchanged (sentinel state).
    * SEC-3: No credential values logged.
    */
   const testServiceNow = async () => {
@@ -288,7 +288,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
 
   /**
    * Client-side validation before save.
-   * STORY-102: Credential fields only required for first-time setup or when edit mode active.
+   * Credential fields only required for first-time setup or when edit mode active.
    * Returns true if all fields are valid.
    */
   const validate = (): boolean => {
@@ -334,7 +334,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
 
   /**
    * Save connection changes.
-   * STORY-102: Credential keys are conditionally included in request bodies.
+   * Credential keys are conditionally included in request bodies.
    * - If credential edit mode is inactive (sentinel state) → omit key → backend preserves.
    * - If credential edit mode is active with a value → include key → backend updates.
    * SEC-3: No credential values logged.
@@ -375,7 +375,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
           baseUrl: jiraBaseUrl,
           email: jiraEmail,
         };
-        // STORY-102: Only include apiToken if user activated edit mode AND typed a value
+        // Only include apiToken if user activated edit mode AND typed a value
         if (jiraTokenEditMode && jiraApiToken.trim()) {
           jiraBody.apiToken = jiraApiToken;
         }
@@ -388,7 +388,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
         status.jira = 'error';
         const errMsg = parseApiError(e);
         errors.push(`JIRA: ${errMsg}`);
-        // AC-13: Auto-activate credential edit mode on auth failure
+        // Auto-activate credential edit mode on auth failure
         if (errMsg.toLowerCase().includes('credential') || errMsg.toLowerCase().includes('authentication')) {
           setJiraTokenEditMode(true);
         }
@@ -405,7 +405,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
           clientId: snowClientId,
           username: snowUsername,
         };
-        // STORY-102: Only include credential fields if user entered new values
+        // Only include credential fields if user entered new values
         if (snowSecretEditMode && snowClientSecret.trim()) {
           snowBody.clientSecret = snowClientSecret;
         }
@@ -421,7 +421,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
         status.servicenow = 'error';
         const errMsg = parseApiError(e);
         errors.push(`ServiceNow: ${errMsg}`);
-        // AC-13: Auto-activate credential edit mode on auth failure
+        // Auto-activate credential edit mode on auth failure
         if (errMsg.toLowerCase().includes('credential') || errMsg.toLowerCase().includes('authentication')) {
           setSnowSecretEditMode(true);
           setSnowPasswordEditMode(true);
@@ -565,7 +565,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
                 }
                 errorText={fieldErrors.jiraApiToken}
               >
-                {/* STORY-102: Credential sentinel pattern */}
+                {/* Credential sentinel pattern */}
                 {jiraCredsConfigured && !jiraTokenEditMode ? (
                   <SpaceBetween direction="horizontal" size="xs" alignItems="center">
                     <StatusIndicator type="success">Configured</StatusIndicator>
@@ -665,7 +665,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
                 }
                 errorText={fieldErrors.snowClientSecret}
               >
-                {/* STORY-102: Credential sentinel pattern */}
+                {/* Credential sentinel pattern */}
                 {snowCredsConfigured && !snowSecretEditMode ? (
                   <SpaceBetween direction="horizontal" size="xs" alignItems="center">
                     <StatusIndicator type="success">Configured</StatusIndicator>
@@ -726,7 +726,7 @@ export default function ConnectionEditModal({ visible, config, onDismiss, onSave
                 }
                 errorText={fieldErrors.snowPassword}
               >
-                {/* STORY-102: Credential sentinel pattern */}
+                {/* Credential sentinel pattern */}
                 {snowCredsConfigured && !snowPasswordEditMode ? (
                   <SpaceBetween direction="horizontal" size="xs" alignItems="center">
                     <StatusIndicator type="success">Configured</StatusIndicator>

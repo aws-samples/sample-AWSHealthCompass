@@ -27,7 +27,7 @@ from aws_cdk import (
 )
 from constructs import Construct
 
-# Shared constant: rule name coupled with CoreStack SQS policy (IMPL-SEC-002-01).
+# Shared constant: rule name coupled with CoreStack SQS policy.
 HEALTH_EVENT_RULE_NAME = "compass-health-event-capture"
 
 
@@ -39,7 +39,7 @@ class EventCaptureStack(cdk.Stack):
                          **kwargs)
 
         # ---------------------------------------------------------------
-        # SNS Ops Alerts Topic — region-local (STORY-121, TR-2)
+        # SNS Ops Alerts Topic — region-local
         # CloudWatch alarm actions can only reference an SNS topic ARN in
         # the alarm's own region. This topic is created independently here
         # rather than passed in from CoreStack, for the same reason
@@ -59,9 +59,8 @@ class EventCaptureStack(cdk.Stack):
             sns_subs.EmailSubscription(ops_alert_email)
         )
 
-        # TR-13 (mandatory, Snape Finding 1/1b — CRITICAL): explicit,
-        # conditioned resource policy statement — CDK does NOT auto-grant
-        # CloudWatch publish permission via add_alarm_action(). Do NOT
+        # Explicit, conditioned resource policy statement — CDK does NOT
+        # auto-grant CloudWatch publish permission via add_alarm_action(). Do NOT
         # replace with grant_publish(ServicePrincipal(...)) — that omits the
         # aws:SourceAccount condition and is a cross-account confused-deputy
         # vulnerability. See core_stack.py for full rationale.
@@ -77,7 +76,7 @@ class EventCaptureStack(cdk.Stack):
         )
 
         # DLQ for EventBridge delivery failures.
-        # IMPL-SEC-002-02: encrypted at rest + enforce SSL.
+        # Encrypted at rest + enforce SSL.
         self.dlq = sqs.Queue(self, "EventBridgeDLQ",
             retention_period=Duration.days(14),
             enforce_ssl=True,
@@ -85,7 +84,7 @@ class EventCaptureStack(cdk.Stack):
         )
 
         # IAM role for EventBridge to deliver to cross-region SQS.
-        # IMPL-SEC-002-04: scoped to exact queue ARNs, no wildcards.
+        # Scoped to exact queue ARNs, no wildcards.
         event_role = iam.Role(self, "EventBridgeRole",
             assumed_by=iam.ServicePrincipal("events.amazonaws.com"),
         )
@@ -124,7 +123,7 @@ class EventCaptureStack(cdk.Stack):
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
             alarm_description="EventBridge failed to deliver Health events to SQS Ingestion Queue",
         )
-        # TR-5 (STORY-121): notification action appended, existing alarm
+        # notification action appended, existing alarm
         # block above is unmodified.
         eb_dlq_alarm.add_alarm_action(cw_actions.SnsAction(self.ops_alerts_topic))
 

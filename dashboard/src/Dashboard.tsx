@@ -37,7 +37,7 @@ export default function Dashboard({ campaigns, config, onRefresh, notify, onNavi
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [resourcesError, setResourcesError] = useState<string | null>(null);
   const [breakdownError, setBreakdownError] = useState<string | null>(null);
-  // STORY-133: headline orphan signal is the TICKET count from the sync-backed
+  // Headline orphan signal is the TICKET count from the sync-backed
   // orphan-status contract, gated by the backend-owned thresholdExceeded boolean.
   const [orphanStatus, setOrphanStatus] = useState<OrphanStatus>({
     orphanCount: 0,
@@ -47,9 +47,9 @@ export default function Dashboard({ campaigns, config, onRefresh, notify, onNavi
   const PAGE_SIZE = 10;
 
   useEffect(() => {
-    // STORY-133 (Q1/AC-6): read the sync-backed TICKET count (O(1) ConfigTable
+    // Read the sync-backed TICKET count (O(1) ConfigTable
     // get_item) — not the ResourcesTable /routing/orphans resource scan. The
-    // banner/card gate on the backend thresholdExceeded (>10 tickets, A-JIRA-10),
+    // banner/card gate on the backend thresholdExceeded (>10 tickets),
     // never a hardcoded frontend threshold.
     apiFetch('/config/routing/orphan-status')
       .then((data: OrphanStatus) => setOrphanStatus({
@@ -162,12 +162,12 @@ export default function Dashboard({ campaigns, config, onRefresh, notify, onNavi
   const pendingRes = campaigns.reduce((s, c) => s + c.totalResources - c.resolvedResources, 0);
   const activeCamp = campaigns.filter(c => c.ticketedResources > 0).length;
 
-  // STORY-139 (§4): platform-aware setup-alert readiness, driven by the resolved
+  // Platform-aware setup-alert readiness, driven by the resolved
   // platforms array (not the JIRA-only scalar). For a SNOW-only deployment,
   // readiness keys off the ServiceNow connection/routing signals so a fully
-  // configured SNOW-only customer is not perpetually told to "configure JIRA"
-  // (AC-139.5). For JIRA/dual, the legs reduce byte-identical to pre-epic
-  // (AC-139.9 no-regression).
+  // configured SNOW-only customer is not perpetually told to "configure JIRA".
+  // For JIRA/dual, the legs reduce byte-identical to pre-epic
+  // (no-regression).
   const { labelPlatform } = resolvePlatformContext(config);
   const connectionReady =
     labelPlatform === 'servicenow'
@@ -176,7 +176,7 @@ export default function Dashboard({ campaigns, config, onRefresh, notify, onNavi
   const routingReady =
     labelPlatform === 'servicenow'
       // Prefer a discrete SNOW default-group signal if the summary exposes it;
-      // otherwise use the platform-neutral accountMappingCount fallback (§4.1).
+      // otherwise use the platform-neutral accountMappingCount fallback.
       ? !!(config?.routing as any)?.snowAssignmentGroupId ||
         (config?.routing?.accountMappingCount ?? 0) > 0
       : !!config?.routing?.defaultProject;

@@ -8,13 +8,13 @@ and counts orphan tickets.
 Triggers:
   - EventBridge schedule rule: rate(1 hour)
 
-SECURITY CONSTRAINTS (Snape review 07):
-- SR-01: All JIRA-sourced fields validated before DynamoDB write.
-- SR-02: JQL built from hardcoded labels + validated timestamp only.
-- SR-03: Credentials cached with TTL; invalidated on 401.
-- SR-07: SYNC_STATE.last_sync_at validated on read.
-- SR-09: 200ms inter-page delay on JQL pagination.
-- SR-10: No raw JIRA responses or credentials in logs.
+SECURITY CONSTRAINTS:
+-: All JIRA-sourced fields validated before DynamoDB write.
+-: JQL built from hardcoded labels + validated timestamp only.
+-: Credentials cached with TTL; invalidated on 401.
+-: SYNC_STATE.last_sync_at validated on read.
+-: 200ms inter-page delay on JQL pagination.
+-: No raw JIRA responses or credentials in logs.
 """
 
 from __future__ import annotations
@@ -53,25 +53,25 @@ _RESOURCES_TABLE = os.environ.get("RESOURCES_TABLE", "compass-resources")
 _JIRA_SECRET_ARN = os.environ.get("JIRA_SECRET_ARN", "")
 _AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
-# --- Constants (SR-02: hardcoded, never from config) ---
+# --- Constants (hardcoded, never from config) ---
 
 _PAGE_SIZE = 50
 _MAX_TOTAL = 10_000
-_INTER_PAGE_DELAY_S = 0.2  # SR-09 / IMPL-F04
+_INTER_PAGE_DELAY_S = 0.2  # / IMPL-F04
 
 _CACHE_TTL_S = 3600  # 60 minutes
 _DEFAULT_LOOKBACK_H = 24
 _MAX_LOG_LEN = 256
 
-# SR-01: Validation patterns
+# Validation patterns
 _JIRA_KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]+-\d+$")
 _ISO_TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _JQL_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
 _CTRL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
-# SR-01: statusCategory allowlist — delegated to resolve_core.status_mapping
+# statusCategory allowlist — delegated to resolve_core.status_mapping
 
-# SR-07: SYNC_STATE.last_sync_status allowlist
+# SYNC_STATE.last_sync_status allowlist
 _VALID_SYNC_STATUSES = frozenset({"success", "partial", "failed", "skipped"})
 
 # --- Boto3 resources (module-level for connection reuse) ---
@@ -83,19 +83,19 @@ _config_table = _dynamodb.Table(_CONFIG_TABLE)
 _campaigns_table = _dynamodb.Table(_CAMPAIGNS_TABLE)
 _resources_table = _dynamodb.Table(_RESOURCES_TABLE)
 
-# --- Module-level cache (SR-03) ---
+# --- Module-level cache ---
 
 _jira_client: Optional[JiraClient] = None
 _client_created_at: float = 0.0
 
 
 # ===================================================================
-# Validation helpers (SR-01)
+# Validation helpers
 # ===================================================================
 
 
 def _sanitize_log(val: Any) -> str:
-    """Truncate and strip control chars for safe log output (SR-10)."""
+    """Truncate and strip control chars for safe log output."""
     text = str(val) if val is not None else ""
     text = _CTRL_CHAR_RE.sub("", text)
     return text[:_MAX_LOG_LEN]
@@ -144,7 +144,7 @@ def _validate_jira_timestamp(ts: Any, fallback: str) -> str:
 
 
 def _validate_last_sync_at(val: Any) -> Optional[str]:
-    """Validate last_sync_at is ISO 8601 UTC and not in the future (SR-02/07)."""
+    """Validate last_sync_at is ISO 8601 UTC and not in the future."""
     if not isinstance(val, str) or not _ISO_TS_RE.match(val):
         return None
     try:
@@ -158,7 +158,7 @@ def _validate_last_sync_at(val: Any) -> Optional[str]:
 
 
 def _format_jql_date(iso_ts: str) -> str:
-    """Convert ISO 8601 to JQL date format 'YYYY-MM-DD HH:mm' (SR-02)."""
+    """Convert ISO 8601 to JQL date format 'YYYY-MM-DD HH:mm'."""
     dt = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
     jql_date = dt.strftime("%Y-%m-%d %H:%M")
     if not _JQL_DATE_RE.match(jql_date):
@@ -178,7 +178,7 @@ def _default_lookback() -> str:
 
 
 # ===================================================================
-# JQL builders (SR-02: no dynamic label values)
+# JQL builders (no dynamic label values)
 # ===================================================================
 
 
@@ -202,7 +202,7 @@ def _build_orphan_jql() -> str:
 
 
 # ===================================================================
-# Credential management (SR-03 / IMPL-F03)
+# Credential management (IMPL-F03)
 # ===================================================================
 
 
@@ -216,8 +216,7 @@ def _invalidate_client() -> None:
 def _get_jira_client() -> JiraClient:
     """Load JIRA credentials and build client with TTL cache.
 
-    IMPL-F03: Validates secret ARN from ConfigTable against env var.
-    SR-03: Cache invalidated on 401; TTL 60 minutes.
+    IMPL-F03: Validates secret ARN from ConfigTable against env var.: Cache invalidated on 401; TTL 60 minutes.
     """
     global _jira_client, _client_created_at
 
@@ -270,7 +269,7 @@ def _build_ticket_index() -> Dict[str, Dict[str, str]]:
     """Scan ResourcesTable for items with ticketId → in-memory index.
 
     Reads from `tickets` map (dual-platform) with flat-field fallback
-    for backward compatibility with pre-STORY-111 items.
+    for backward compatibility with legacy items.
 
     Returns dict: ticketId → {campaignId, trackingKey, platform, ticketStatus, ticketRawStatus}.
     """
@@ -332,15 +331,13 @@ def _build_ticket_index() -> Dict[str, Dict[str, str]]:
 def _poll_jira(client: JiraClient, jql: str) -> List[dict]:
     """Execute paginated JQL search via /rest/api/3/search/jql.
 
-    STORY-122: the old /rest/api/3/search endpoint (offset-based
+    the old /rest/api/3/search endpoint (offset-based
     startAt/total pagination) was removed by Atlassian (HTTP 410).
     This now uses the replacement endpoint's cursor-based pagination
     (nextPageToken/isLast). There is no "total" field in the new
     response, so the _MAX_TOTAL safety cap is enforced directly
     against the accumulated result count instead of a server-reported
-    total.
-
-    SR-09 / IMPL-F04: 200ms delay between pages.
+    total. / IMPL-F04: 200ms delay between pages.
     Safety cap at _MAX_TOTAL accumulated results.
     """
     all_issues: List[dict] = []
@@ -357,7 +354,7 @@ def _poll_jira(client: JiraClient, jql: str) -> List[dict]:
         issues = resp.get("issues") if isinstance(resp.get("issues"), list) else []
         all_issues.extend(issues)
 
-        # STORY-122: cap enforced against accumulated count — no
+        # cap enforced against accumulated count — no
         # server-reported "total" exists under the new API.
         if len(all_issues) >= _MAX_TOTAL:
             logger.warning("JQL results capped at %d", _MAX_TOTAL)
@@ -369,7 +366,7 @@ def _poll_jira(client: JiraClient, jql: str) -> List[dict]:
         if is_last or not next_page_token or not issues:
             break
 
-        time.sleep(_INTER_PAGE_DELAY_S)  # SR-09
+        time.sleep(_INTER_PAGE_DELAY_S)
 
     return all_issues
 
@@ -384,9 +381,7 @@ def _process_ticket(
     ticket_index: Dict[str, Dict[str, str]],
     now: str,
 ) -> Optional[str]:
-    """Process a single JIRA issue. Returns affected campaignId or None.
-
-    SR-01: Validates all JIRA-sourced fields before DynamoDB write.
+    """Process a single JIRA issue. Returns affected campaignId or None.: Validates all JIRA-sourced fields before DynamoDB write.
     """
     # Validate issue key
     key = _validate_issue_key(issue.get("key"))
@@ -413,7 +408,7 @@ def _process_ticket(
     )
     updated_at = _validate_jira_timestamp(fields.get("updated"), now)
 
-    # Skip write if status unchanged (AC-12)
+    # Skip write if status unchanged
     if entry.get("ticketStatus") == normalized and entry.get("ticketRawStatus") == raw_status:
         return None
 
@@ -433,7 +428,7 @@ def _process_ticket(
                 "#tua = :tua, #ua = :ua"
             ),
             ExpressionAttributeNames={
-                "#platform": platform,  # SEC-111-1: value from index (jira/servicenow)
+                "#platform": platform,  # value from index (jira/servicenow)
                 "#ts": "ticketStatus",
                 "#trs": "ticketRawStatus",
                 "#tua": "ticketUpdatedAt",
@@ -451,7 +446,7 @@ def _process_ticket(
     except ClientError as exc:
         error_code = exc.response.get("Error", {}).get("Code", "")
         if error_code == "ValidationException":
-            # Fallback: tickets map doesn't exist (pre-STORY-111 item) —
+            # Fallback: tickets map doesn't exist (legacy item) —
             # write flat fields only; nested map will be created on next ticket write
             try:
                 _resources_table.update_item(
@@ -596,7 +591,7 @@ def _aggregate_campaign(campaign_id: str, now: str) -> None:
 def _count_orphans(client: JiraClient) -> int:
     """Count orphan tickets via /rest/api/3/search/approximate-count.
 
-    STORY-122: the old max_results=0/total trick against
+    the old max_results=0/total trick against
     /rest/api/3/search no longer works (endpoint removed, and its
     replacement /rest/api/3/search/jql has no "total" field at any
     maxResults). This calls the dedicated count endpoint instead,
@@ -643,7 +638,7 @@ def _write_sync_state(
 def _write_orphan_count(count: int, now: str) -> None:
     """Write orphan count to ConfigTable with alert flag.
 
-    STORY-117: pk/field names come from resolve_core.constants so the
+    pk/field names come from resolve_core.constants so the
     reader (lambdas/api/orphan_handlers.py) and writer never drift.
     """
     count = max(0, min(count, 100_000))
@@ -656,15 +651,15 @@ def _write_orphan_count(count: int, now: str) -> None:
 
 
 # ===================================================================
-# Platform detection (Beta — STORY-063)
-# STORY-136: platform resolution moved to the shared seam
+# Platform detection (Beta)
+# platform resolution moved to the shared seam
 # (resolve_core.config_schema.resolve_platforms / operative_platform).
 # The former local _get_active_platform reader was retired here.
 # ===================================================================
 
 
 # ===================================================================
-# ServiceNow sync (Beta — STORY-063)
+# ServiceNow sync (Beta)
 # ===================================================================
 
 
@@ -827,8 +822,8 @@ def lambda_handler(event: Any, context: Any) -> dict:
     logger.info("sync_started — region=%s", _AWS_REGION)
 
     # --- Phase 0: Platform detection ---
-    # STORY-136: resolve via the shared seam. operative_platform keeps this
-    # behavior-preserving (single-platform branch) until STORY-138 rewires the
+    # resolve via the shared seam. operative_platform keeps this
+    # behavior-preserving (single-platform branch) until a later change rewires the
     # sync loop to iterate the resolved array.
     active_platform = operative_platform(resolve_platforms(_config_table))
 
@@ -856,7 +851,7 @@ def lambda_handler(event: Any, context: Any) -> dict:
         _write_sync_state("skipped", None, 0, 0, 0, now)
         return {"status": "skipped", "reason": "jira_not_configured"}
 
-    # Read last sync timestamp (SR-07: validate on read)
+    # Read last sync timestamp (validate on read)
     try:
         state_resp = _config_table.get_item(Key={"pk": "SYNC_STATE"})
     except ClientError:
@@ -871,7 +866,7 @@ def lambda_handler(event: Any, context: Any) -> dict:
             _DEFAULT_LOOKBACK_H,
         )
 
-    # Load JIRA client (SR-03: cached with TTL)
+    # Load JIRA client (cached with TTL)
     try:
         client = _get_jira_client()
     except (RuntimeError, ClientError, Exception) as exc:
@@ -905,7 +900,7 @@ def lambda_handler(event: Any, context: Any) -> dict:
         jql = _build_sync_jql(jql_date)
         issues = _poll_jira(client, jql)
     except JiraApiError as exc:
-        # SR-03: Invalidate client on 401
+        # Invalidate client on 401
         if exc.status == 401:
             _invalidate_client()
         logger.error(

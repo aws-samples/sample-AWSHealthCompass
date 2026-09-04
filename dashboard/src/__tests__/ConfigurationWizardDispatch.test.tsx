@@ -1,5 +1,5 @@
 /**
- * Unit/integration tests for STORY-115:
+ * Unit/integration tests for:
  *   Fix wizard dispatch casing + prevent silent activation under the wrong mode.
  *
  * Covers the two halves of the defect:
@@ -117,7 +117,7 @@ function wasCalled(path: string): boolean {
 // 1. Casing — custom-mode save sends camelCase body
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationWizard dispatch — custom-mode casing (STORY-115)', () => {
+describe('ConfigurationWizard dispatch — custom-mode casing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -164,7 +164,7 @@ describe('ConfigurationWizard dispatch — custom-mode casing (STORY-115)', () =
 // 2. Non-custom modes save without a rules field
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationWizard dispatch — non-custom modes omit rules (STORY-115)', () => {
+describe('ConfigurationWizard dispatch — non-custom modes omit rules', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installHappyMock();
@@ -208,7 +208,7 @@ describe('ConfigurationWizard dispatch — non-custom modes omit rules (STORY-11
 // 3. CRITICAL — activation-halt regression
 // ---------------------------------------------------------------------------
 
-describe('ConfigurationWizard — activation halt on dispatch failure (STORY-115, CRITICAL)', () => {
+describe('ConfigurationWizard — activation halt on dispatch failure (CRITICAL)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

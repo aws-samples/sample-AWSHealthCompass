@@ -1,4 +1,4 @@
-"""Routing configuration API handlers (STORY-028).
+"""Routing configuration API handlers.
 
 Implements 7 endpoints for account routing and bulk import:
   POST /api/config/routing/default
@@ -32,8 +32,8 @@ import boto3
 import urllib3
 from botocore.exceptions import ClientError
 
-# STORY-136: shared platform-resolution seam (single source of truth).
-# STORY-137: also imports PK_SNOW_CONNECTION for DD-STRUCT-7 SNOW target
+# shared platform-resolution seam (single source of truth).
+# also imports PK_SNOW_CONNECTION for SNOW target
 # existence validation at save time (reuses the SNOW_CONNECTION config item).
 try:
     from resolve_core.config_schema import (
@@ -59,7 +59,7 @@ _MAX_BODY_SIZE = 5_242_880
 # Import preview TTL: 15 minutes
 _IMPORT_TTL_SECONDS = 900
 
-# STORY-120 (Snape Finding 3/5): ServiceNow sys_id must be a 32-char lowercase
+# ServiceNow sys_id must be a 32-char lowercase
 # hex string; cap length defensively before regex match to bound worst-case
 # input size handled per mapping row.
 _SNOW_SYS_ID_PATTERN = re.compile(r"^[0-9a-f]{32}$")
@@ -205,13 +205,13 @@ def _get_jira_credentials() -> tuple[str, str, str] | None:
 
 
 # ===================================================================
-# STORY-137 (DD-STRUCT-7): ServiceNow routing-target validation at save
+# ServiceNow routing-target validation at save
 #
 # The ServiceNow twin of _get_jira_credentials / _validate_jira_project.
 # Reuses the ALREADY-implemented ServiceNowClient.validate_routing_target
 # (format `^[a-f0-9]{32}$` check + GET /api/now/table/sys_user_group/{sys_id}
 # existence) via the SNOW_CONNECTION config item — no new IAM, no new secret,
-# no alternate HTTP path (Snape MUST-15). The SNOW-secret read is already
+# no alternate HTTP path. The SNOW-secret read is already
 # granted to the API Lambda (api_stack.py grant_read).
 # ===================================================================
 
@@ -220,8 +220,7 @@ def _get_snow_client_or_none():
 
     Returns the client, or None if ServiceNow is not configured/validated.
     Mirrors servicenow_integration/handler.py:_get_client. Reads ONLY the
-    SNOW_CONNECTION ConfigTable item plus the already-granted SNOW secret
-    (Snape MUST-8: no new config item, no new IAM/env/secret/network).
+    SNOW_CONNECTION ConfigTable item plus the already-granted SNOW secret.
     """
     try:
         conn = _config_table().get_item(Key={"pk": PK_SNOW_CONNECTION}).get("Item")
@@ -262,24 +261,23 @@ def _get_snow_client_or_none():
 
 
 def _validate_snow_target_or_error(group_id: str):
-    """DD-STRUCT-7 existence check for a single SNOW assignment-group sys_id.
+    """Existence check for a single SNOW assignment-group sys_id.
 
     Returns None on success, or an _error(...) response on failure.
 
-    Precondition (Snape MUST-1): the caller MUST have already run the pure
+    Precondition: the caller MUST have already run the pure
     format validators (validate_routing_*), so a malformed sys_id never
     reaches this network path. ServiceNowClient.validate_routing_target
     re-checks the 32-hex format as defense-in-depth before any GET.
 
-    Error mapping (Luna §6.4, Snape MUST-9 — never JIRA-worded, never raw
-    upstream detail):
+    Error mapping:
       - no validated SNOW connection -> CFG_SNOW_NOT_CONFIGURED
       - not found / API error / transient failure -> CFG_SNOW_GROUP_NOT_FOUND
     """
     client = _get_snow_client_or_none()
     if client is None:
-        # Edge §5.A — SNOW-only but SNOW not connected. The ServiceNow twin of
-        # CFG_JIRA_NOT_CONFIGURED (Snape MUST-11).
+        # Edge case — SNOW-only but SNOW not connected. The ServiceNow twin of
+        # CFG_JIRA_NOT_CONFIGURED.
         return _error(400, "CFG_SNOW_NOT_CONFIGURED",
                       "ServiceNow connection must be configured and validated "
                       "before saving routing.")
@@ -288,8 +286,8 @@ def _validate_snow_target_or_error(group_id: str):
         result = client.validate_routing_target(group_id)
     except Exception:
         # Fail closed on any client-level failure (transient/5xx after retries,
-        # connection error) — never fall through to persist (Snape MUST-13).
-        # Do NOT surface raw upstream detail (Snape MUST-9).
+        # connection error) — never fall through to persist.
+        # Do NOT surface raw upstream detail.
         logger.exception("ServiceNow target validation raised for a routing save")
         return _error(400, "CFG_SNOW_GROUP_NOT_FOUND",
                       f"ServiceNow assignment group '{group_id}' could not be "
@@ -309,7 +307,7 @@ def _validate_snow_target_or_error(group_id: str):
 def handle_routing_default(event, context):
     """Save default routing (orphan queue) project.
 
-    Design: BRD §14.2 ROUTING_DEFAULT, §14.3 step 3.
+    Writes the ROUTING_DEFAULT item (orphan-queue default target).
     BUG-S23-002: Platform-aware validation — skip JIRA API call for ServiceNow.
     """
     try:
@@ -342,9 +340,9 @@ def handle_routing_default(event, context):
         if not result["valid"]:
             return _error(400, "CFG_INVALID_JIRA_PROJECT", result["reason"])
     elif platform == "servicenow":
-        # STORY-137 (DD-STRUCT-7): validate the SNOW assignment-group target
+        # validate the SNOW assignment-group target
         # exists. Format was already checked by validate_routing_default above
-        # (Snape MUST-1: format before existence). Single-target surface →
+        #. Single-target surface →
         # top-level 400, mirroring the JIRA branch's placement.
         snow_err = _validate_snow_target_or_error(body["snowAssignmentGroupId"])
         if snow_err:
@@ -394,7 +392,7 @@ def handle_routing_default(event, context):
 def handle_routing_accounts(event, context):
     """Add or update a single account routing mapping.
 
-    Design: BRD §14.2 ROUTING#{accountId}.
+    Writes a ROUTING#{accountId} per-account routing item.
     BUG-S23-002: Platform-aware validation — skip JIRA API call for ServiceNow.
     """
     try:
@@ -429,9 +427,9 @@ def handle_routing_accounts(event, context):
         if not result["valid"]:
             return _error(400, "CFG_INVALID_JIRA_PROJECT", result["reason"])
     elif platform == "servicenow":
-        # STORY-137 (DD-STRUCT-7): validate the SNOW assignment-group target
+        # validate the SNOW assignment-group target
         # exists. Format was already checked by validate_routing_account above
-        # (Snape MUST-1: format before existence). Single-target surface →
+        #. Single-target surface →
         # top-level 400, mirroring the JIRA branch's placement.
         snow_err = _validate_snow_target_or_error(body["snowAssignmentGroupId"])
         if snow_err:
@@ -486,7 +484,7 @@ def handle_routing_accounts(event, context):
 def handle_routing_import(event, context):
     """Parse CSV or JSON bulk import and return preview. Stores in ConfigTable with TTL.
 
-    Design: BRD §14.6. Security: M-1 (csv.reader), M-2 (body size check).
+    Security: M-1 (csv.reader), M-2 (body size check).
     """
     try:
         from validators import validate_account_id_format
@@ -533,12 +531,12 @@ def handle_routing_import(event, context):
         if not jira_project and not snow_group_id:
             errors.append("Either a JIRA project or a ServiceNow assignment group is required")
         if snow_group_id:
-            # Snape Finding 5: bound length before format check
+            # bound length before format check
             if len(snow_group_id) > _MAX_SNOW_GROUP_ID_LENGTH:
                 errors.append(
                     f"ServiceNow assignment group ID must not exceed {_MAX_SNOW_GROUP_ID_LENGTH} characters"
                 )
-            # Snape Finding 3: enforce ServiceNow sys_id shape (32-char lowercase hex)
+            # enforce ServiceNow sys_id shape (32-char lowercase hex)
             elif not _SNOW_SYS_ID_PATTERN.match(snow_group_id):
                 errors.append(
                     "ServiceNow assignment group ID must be a 32-character lowercase hex sys_id"
@@ -679,7 +677,7 @@ def _parse_json_import(data: str) -> tuple[list[dict], list[str]]:
 def handle_routing_import_confirm(event, context):
     """Confirm and apply a previously uploaded import.
 
-    Design: BRD §14.6 — replaces all ROUTING#* items.
+    Bulk import — replaces all ROUTING#* items.
     Security: H-1 (prefix constant), H-2 (write-before-delete).
     """
     body = _parse_body(event)
@@ -734,12 +732,12 @@ def handle_routing_import_confirm(event, context):
                 "invalidProjects": invalid_projects,
             }))
     elif platform == "servicenow":
-        # STORY-137 (DD-STRUCT-7): validate each UNIQUE SNOW assignment-group
+        # validate each UNIQUE SNOW assignment-group
         # target exists, mirroring the JIRA unique-project-key loop above.
         # Format was already enforced at preview (_SNOW_SYS_ID_PATTERN) so
         # existence-only here. Build the client ONCE; fail closed on error;
         # aggregate failures into one CFG_SNOW_GROUP_NOT_FOUND 400 (no partial
-        # write — Snape MUST-13, edge §5.C).
+        # write).
         unique_groups = set(
             m["snowAssignmentGroupId"] for m in mappings if m.get("snowAssignmentGroupId")
         )
@@ -862,7 +860,7 @@ def _delete_stale_routing_items(table, new_pks: set) -> None:
 def handle_routing_discover(event, context):
     """Discover AWS accounts from Organizations.
 
-    Design: BRD §14.1 Step 2 — Auto-discovery.
+    Auto-discovery of accounts from AWS Organizations.
     Security: M-4 — strip email from response.
     """
     try:
@@ -900,7 +898,7 @@ def handle_routing_discover(event, context):
 def handle_routing_get(event, context):
     """Return all routing configuration (default + account mappings).
 
-    Design: BRD §14.2 — full routing config.
+    Returns the full routing config.
     """
     table = _config_table()
 
@@ -978,7 +976,7 @@ def handle_routing_get(event, context):
 def handle_routing_accounts_delete(event, context):
     """Delete a single account routing mapping.
 
-    Design: BRD §14.2 — per-account routing removal.
+    Per-account routing removal.
     """
     # Extract accountId from path parameters
     path_params = event.get("pathParameters") or {}
@@ -1026,7 +1024,7 @@ def handle_routing_accounts_delete(event, context):
 def handle_routing_validate(event, context):
     """Validate JIRA project keys or ServiceNow assignment groups exist.
 
-    STORY-084: Routing target validation during setup.
+    Routing target validation during setup.
     Calls external ITSM API to confirm each target is reachable.
     """
     body = _parse_body(event)
@@ -1058,11 +1056,10 @@ def handle_routing_validate(event, context):
             else:
                 results.append({"target": target, "valid": False, "error": result.get("reason", "Unknown error")})
     else:
-        # STORY-137 (§4.5): ServiceNow target validation via the same
-        # DD-STRUCT-7 primitive used by the save paths — no longer an
+        # ServiceNow target validation via the same
+        # primitive used by the save paths — no longer an
         # "accept-all" placeholder. Format is checked inside
-        # validate_routing_target (Snape MUST-1/-15: goes through
-        # ServiceNowClient, host-pinned, no alternate HTTP).
+        # validate_routing_target.
         client = _get_snow_client_or_none()
         if client is None:
             return _error(400, "CFG_SNOW_NOT_CONFIGURED",
@@ -1080,7 +1077,7 @@ def handle_routing_validate(event, context):
                 results.append({"target": target, "valid": True,
                                 "displayName": result.target_name or target})
             else:
-                # Do not surface raw upstream detail (Snape MUST-9).
+                # Do not surface raw upstream detail.
                 results.append({"target": target, "valid": False,
                                 "error": "Assignment group not found or invalid"})
 

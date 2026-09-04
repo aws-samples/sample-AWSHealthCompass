@@ -1,5 +1,5 @@
 /**
- * Shared API error formatting (STORY-115).
+ * Shared API error formatting.
  *
  * Single source of truth for turning an `apiFetch` error into user-friendly
  * copy. Consumed by both `modals/DispatchEditModal.tsx` and
