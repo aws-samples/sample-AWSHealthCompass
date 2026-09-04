@@ -1,0 +1,116 @@
+flowchart TD
+    subgraph USW2["us-west-2 (Event Capture)"]
+        HE["AWS Health Events\n(org-level, all regions)"]
+        EB_RULE["EventBridge Rule\naws.health filter\n(scheduledChange,\naccountNotification)"]
+    end
+
+    subgraph USE1["us-east-1 (Primary Region)"]
+
+        subgraph INGESTION["Ingestion Pipeline"]
+            SQS_IN["SQS Ingestion Queue"]
+            SQS_DLQ_IN["DLQ\n(Ingestion)"]
+            PROC_LAMBDA["Processor λ\nEvent standardization\nDedup · Dispatch window\nActionability filter\nCampaign creation\nRouting resolution"]
+        end
+
+        subgraph FANOUT["SNS Fan-Out"]
+            SNS_TOPIC["SNS Integration Topic"]
+        end
+
+        subgraph JIRA_STACK["JIRA Integration Stack (Alpha)"]
+            SQS_JIRA["SQS JIRA Queue"]
+            SQS_DLQ_JIRA["DLQ\n(JIRA)"]
+            JIRA_LAMBDA["JIRA Integration λ\nTicket create/update\n429 retry + backoff"]
+        end
+
+        subgraph SNOW_STACK["ServiceNow Integration Stack (Beta)"]
+            SQS_SNOW["SQS ServiceNow Queue"]
+            SQS_DLQ_SNOW["DLQ\n(ServiceNow)"]
+            SNOW_LAMBDA["ServiceNow Integration λ\nIncident/Change Request\nCMDB routing"]
+        end
+
+        subgraph FUTURE_STACK["Future Integration Stack (Planned)"]
+            SQS_FUTURE["SQS Future Queue"]
+            SQS_DLQ_FUTURE["DLQ\n(Future)"]
+            FUTURE_LAMBDA["Future Integration λ\n(GitHub, GitLab, etc.)"]
+        end
+
+        subgraph DATA["Data Layer"]
+            CONFIG_TABLE[("ConfigTable\nJIRA connection\nRouting rules\nDispatch window")]
+            CAMPAIGNS_TABLE[("CampaignsTable\nCampaign metadata\nResource counts\nRouting results")]
+            RESOURCES_TABLE[("ResourcesTable\nPer-resource tracking\nTicket correlation\nTTL")]
+        end
+
+        subgraph SECRETS["Credentials"]
+            SM["Secrets Manager\nJIRA API token\nServiceNow OAuth"]
+        end
+
+        subgraph SCHEDULED["Scheduled Lambdas"]
+            RECON_LAMBDA["Reconciliation λ\nDaily · Health API\ncatch-up for missed events"]
+            SYNC_LAMBDA["Sync λ\nHourly · Bidirectional\nJIRA status via JQL\nServiceNow status polling"]
+        end
+
+        subgraph API["API Layer"]
+            APIGW["API Gateway (REST)\nCognito auth + API key"]
+        end
+
+    end
+
+    subgraph EXTERNAL["External Systems"]
+        JIRA_API["Atlassian JIRA\nCloud API"]
+        SNOW_API["ServiceNow\nREST API"]
+        FUTURE_API["Future ITSM\nPlatform"]
+        HEALTH_API["AWS Health\nOrg API"]
+    end
+
+    %% Event flow — ingestion
+    HE --> EB_RULE
+    EB_RULE -- "Cross-region\nSQS target" --> SQS_IN
+    SQS_IN -. "Failed messages" .-> SQS_DLQ_IN
+    SQS_IN -- "Lambda ESM\n(batch_size=1)" --> PROC_LAMBDA
+    PROC_LAMBDA --> SNS_TOPIC
+
+    %% Fan-out to integration stacks
+    SNS_TOPIC --> SQS_JIRA
+    SNS_TOPIC --> SQS_SNOW
+    SNS_TOPIC --> SQS_FUTURE
+
+    %% JIRA path
+    SQS_JIRA --> JIRA_LAMBDA
+    SQS_JIRA -. "Failed messages" .-> SQS_DLQ_JIRA
+    JIRA_LAMBDA --> JIRA_API
+
+    %% ServiceNow path
+    SQS_SNOW --> SNOW_LAMBDA
+    SQS_SNOW -. "Failed messages" .-> SQS_DLQ_SNOW
+    SNOW_LAMBDA --> SNOW_API
+
+    %% Future path
+    SQS_FUTURE --> FUTURE_LAMBDA
+    SQS_FUTURE -. "Failed messages" .-> SQS_DLQ_FUTURE
+    FUTURE_LAMBDA --> FUTURE_API
+
+    %% Data access
+    PROC_LAMBDA --> CONFIG_TABLE
+    PROC_LAMBDA --> CAMPAIGNS_TABLE
+    PROC_LAMBDA --> RESOURCES_TABLE
+    JIRA_LAMBDA --> CONFIG_TABLE
+    JIRA_LAMBDA --> CAMPAIGNS_TABLE
+    JIRA_LAMBDA --> RESOURCES_TABLE
+    JIRA_LAMBDA --> SM
+    SNOW_LAMBDA --> CONFIG_TABLE
+    SNOW_LAMBDA --> CAMPAIGNS_TABLE
+    SNOW_LAMBDA --> RESOURCES_TABLE
+    SNOW_LAMBDA --> SM
+
+    %% Scheduled
+    RECON_LAMBDA --> HEALTH_API
+    RECON_LAMBDA --> SQS_IN
+    SYNC_LAMBDA --> JIRA_API
+    SYNC_LAMBDA --> SNOW_API
+    SYNC_LAMBDA --> RESOURCES_TABLE
+    SYNC_LAMBDA --> CAMPAIGNS_TABLE
+
+    %% API
+    APIGW --> CONFIG_TABLE
+    APIGW --> CAMPAIGNS_TABLE
+    APIGW --> RESOURCES_TABLE

@@ -1,0 +1,10 @@
+#
+
+# generic temp files
+**/thumbs.db
+.DS_Store
+**/.DS_Store
+
+# build directory for temp storage of lambda files
+build
+code/**.zip
