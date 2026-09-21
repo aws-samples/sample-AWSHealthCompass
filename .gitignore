@@ -1,5 +1,3 @@
-#
-
 # generic temp files
 **/thumbs.db
 .DS_Store
@@ -8,3 +6,49 @@
 # build directory for temp storage of lambda files
 build
 code/**.zip
+
+# CTRL-09: Copied factory files in event_generator Lambda (synth-time artifacts)
+lambdas/event_generator/event_factory.py
+lambdas/event_generator/events/
+
+# CDK
+cdk.out/
+cdk.context.json
+cdk-outputs.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+*.cover
+screenshots/
+traces/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files (never commit secrets)
+.env
+.env.*
+
+# Dashboard build artifacts (STORY-039)
+dashboard/dist/*
+!dashboard/dist/index.html
+dashboard/node_modules/

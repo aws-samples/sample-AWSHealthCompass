@@ -1,0 +1,12 @@
+{
+  "app": "python3 app.py",
+  "watch": {
+    "include": ["stacks/**", "lambdas/**"]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:stackRelativeExports": true,
+    "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false
+  }
+}

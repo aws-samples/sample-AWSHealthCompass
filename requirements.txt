@@ -1,0 +1,10 @@
+aws-cdk-lib==2.140.0
+constructs==10.3.0
+pytest==8.1.1
+# Pin the bundled AWS CLI layer asset: aws-cdk-lib==2.140.0 hardcodes the
+# BucketDeployment custom-resource handler to python3.9, but leaves this asset
+# floating (>=2.2.202,<3.0.0). Fresh installs float to 2.2.280, whose bundled
+# botocore/urllib3 use PEP 604 (str | None) import-time syntax that crashes on
+# py3.9 -> BucketDeployment import failure -> ResolveCore rollback. 2.2.277 is
+# the newest py3.9-safe build. See .kiro/refs/aws/cdk-awscli-asset-py39-pin.md
+aws-cdk.asset-awscli-v1==2.2.277
