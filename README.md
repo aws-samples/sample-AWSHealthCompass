@@ -8,6 +8,13 @@ Route AWS Health events into your ITSM platform (JIRA, ServiceNow) with bidirect
 
 ## Architecture
 
+![Compass architecture — AWS Health events flow through EventBridge, SQS, and Lambda into JIRA/ServiceNow tickets](docs/compass-architecture.jpg)
+
+> Editable source: [`docs/compass-architecture.drawio`](docs/compass-architecture.drawio) (open with [draw.io](https://app.diagrams.net) or the draw.io desktop app). Re-export to `docs/compass-architecture.jpg` after edits.
+
+<details>
+<summary>Text-based diagram (Mermaid)</summary>
+
 ```mermaid
 flowchart TD
     subgraph USW2["us-west-2 (Event Capture)"]
@@ -126,6 +133,8 @@ flowchart TD
     APIGW --> CAMPAIGNS_TABLE
     APIGW --> RESOURCES_TABLE
 ```
+
+</details>
 
 ### Multi-Region Strategy
 
