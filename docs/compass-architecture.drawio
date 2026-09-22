@@ -134,22 +134,19 @@
           <mxGeometry height="48" width="48" x="36" y="30" as="geometry" />
         </mxCell>
         <mxCell id="grp-sources" parent="aws-cloud" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;dashed=0;verticalAlign=top;align=left;spacingLeft=10;fontStyle=1;fontSize=13;fontColor=#666666;fontFamily=Helvetica;container=0;pointerEvents=0;collapsible=0;recursiveResize=0;" value="Sources" vertex="1">
-          <mxGeometry height="715" width="166" x="35" y="90" as="geometry" />
-        </mxCell>
-        <mxCell id="ext-jarvis" parent="aws-cloud" style="fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);dashed=1;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=0;strokeWidth=1;perimeterSpacing=0;" value="Jarvis&lt;div&gt;&lt;i&gt;roadmap&lt;/i&gt;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="120" width="120" x="54" y="370" as="geometry" />
-        </mxCell>
-        <mxCell id="ext-jarvis-icon" parent="ext-jarvis" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#7D8998;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.generic_application;fontFamily=Helvetica;" value="" vertex="1">
-          <mxGeometry height="48" width="48" x="36" y="34" as="geometry" />
+          <mxGeometry height="434" width="166" x="35" y="90" as="geometry" />
         </mxCell>
         <mxCell id="ext-supportcase" parent="aws-cloud" style="fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);dashed=1;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=0;strokeWidth=1;perimeterSpacing=0;" value="Support Case&lt;div&gt;&lt;i&gt;roadmap&lt;/i&gt;&lt;/div&gt;" vertex="1">
-          <mxGeometry height="120" width="120" x="50" y="584" as="geometry" />
+          <mxGeometry height="120" width="120" x="50" y="362" as="geometry" />
         </mxCell>
         <mxCell id="ext-supportcase-icon" parent="ext-supportcase" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#7D8998;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.generic_application;fontFamily=Helvetica;" value="" vertex="1">
           <mxGeometry height="48" width="48" x="36" y="34" as="geometry" />
         </mxCell>
         <mxCell id="step-1" parent="aws-cloud" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="A1" vertex="1">
           <mxGeometry height="28" width="34" x="174" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="eh2Alb7o6NmRO9qhTzzx-2" edge="1" parent="aws-cloud" source="grp-sources" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;innerLoopWaypoints=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="grp-sources">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="users-container" parent="1" style="fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1;perimeterSpacing=0;" value="Ops Team" vertex="1">
           <mxGeometry height="98" width="107" x="80" y="1150" as="geometry" />
