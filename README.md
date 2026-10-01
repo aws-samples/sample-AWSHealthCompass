@@ -362,7 +362,7 @@ From a deployer's perspective, here is what the pattern does once deployed:
 
 ### Quick Start
 
-**Prerequisites:** AWS CLI configured, Node.js 20+, Python 3.12+, CDK CLI (`npm install -g aws-cdk`)
+**Prerequisites:** AWS CLI configured **with valid credentials** (verify with `aws sts get-caller-identity`), Node.js 20+, Python 3.12+ (used via a virtual environment — see step 2), CDK CLI (`npm install -g aws-cdk`)
 
 > **Cost warning:** Deploying this stack creates billable AWS resources including AWS Lambda functions, Amazon DynamoDB tables, Amazon SQS queues, AWS Secrets Manager secrets, Amazon CloudFront distributions, and **two AWS WAF WebACLs**. Estimated cost at 10K events/month is **~$18.88/month (~$19/mo)** — **AWS WAF dominates at ~$18.02/mo** (2 WebACLs × [$5 base + 4 rule/group line items]; ~99% fixed fees, **traffic-independent** at this volume). The non-WAF baseline is ~$0.86/mo. Review the [Infrastructure Footprint](#infrastructure-footprint) table for full details. Destroy the stack when no longer needed to avoid ongoing charges.
 
@@ -375,24 +375,52 @@ From a deployer's perspective, here is what the pattern does once deployed:
 git clone <your-fork-or-repo-url>
 cd compass
 
-# 2. Install Python dependencies
+# 2. Create and activate a Python virtual environment, then install dependencies.
+#    A venv is REQUIRED on modern Python installs (Homebrew/macOS Python 3.12+ is
+#    "externally managed" per PEP 668, so a bare `pip install` is blocked or
+#    installs nowhere the CDK app can see it — the classic symptom is
+#    `ModuleNotFoundError: No module named 'aws_cdk'` when you later run cdk).
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt && pip install -r requirements-dev.txt
 
 # 3. Build the dashboard
 cd dashboard && npm install && npm run build && cd ..
 
-# 4. Bootstrap CDK in both regions
-npx cdk bootstrap aws://$ACCOUNT/us-east-1
-npx cdk bootstrap aws://$ACCOUNT/us-west-2
+# 4. Set your deploy variables. ACCOUNT is derived from your ACTIVE credentials so
+#    it can never be empty — if this command errors, your credentials aren't valid
+#    yet (see Troubleshooting) and bootstrap/deploy will fail until you fix them.
+export ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+export EMAIL=<your-ops-distribution-list@example.com>   # operational DL, not a personal inbox
+echo "Deploying to account: $ACCOUNT"
 
-# 5. Deploy all stacks (add -c deploy_servicenow=true for ServiceNow integration)
-#    -c ops_alert_email=<address> is REQUIRED — supply your own operational
-#    distribution list address; do not commit a literal address anywhere.
+# 5. Bootstrap CDK in both regions. Bootstrap synthesizes the app, so it needs the
+#    SAME context params as deploy (-c account / -c ops_alert_email) or it fails with
+#    "Missing required CDK context parameter 'ops_alert_email'".
+npx cdk bootstrap aws://$ACCOUNT/us-east-1 -c account=$ACCOUNT -c ops_alert_email=$EMAIL
+npx cdk bootstrap aws://$ACCOUNT/us-west-2 -c account=$ACCOUNT -c ops_alert_email=$EMAIL
+
+# 6. Deploy all stacks (add -c deploy_servicenow=true for ServiceNow integration)
+#    -c ops_alert_email is REQUIRED — supply your own operational distribution
+#    list address; do not commit a literal address anywhere.
 #    WAF ships ENFORCING by default. Optional WAF knobs (see docs/WAF.md):
 #      -c waf_mode=count        # observe-only tuning; default is block (enforcing)
 #      -c waf_rate_limit=2000   # per-IP requests / 300s window (default 2000)
-npx cdk deploy --all -c account=$ACCOUNT -c ops_alert_email=<address> -c deploy_test_tools=true -c deploy_servicenow=true --require-approval never
+npx cdk deploy --all -c account=$ACCOUNT -c ops_alert_email=$EMAIL -c deploy_test_tools=true -c deploy_servicenow=true --require-approval never
 ```
+
+> **Keep the venv active.** Every `cdk` command shells out to `python3 app.py`, so the virtual environment created in step 2 must be active (`source .venv/bin/activate`) in the shell where you run `cdk bootstrap`, `cdk deploy`, `cdk list`, etc. A new terminal needs the `source` command re-run.
+
+#### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `ModuleNotFoundError: No module named 'aws_cdk'` | CDK Python deps aren't installed in the Python that `cdk` invokes — usually because no venv is active, or `pip install` was run against an externally-managed Python. | Activate the venv and reinstall: `source .venv/bin/activate && pip install -r requirements.txt`. Confirm with `python -c "import aws_cdk"`. |
+| `Missing required CDK context parameter 'ops_alert_email'` | A `cdk` command ran without `-c ops_alert_email=...`. This includes `bootstrap` — it synthesizes the app too. | Add `-c account=$ACCOUNT -c ops_alert_email=$EMAIL` to **every** cdk invocation (bootstrap, deploy, list, diff, synth, destroy). |
+| Bootstrap/deploy targets `aws:///us-east-1` (empty account) | `$ACCOUNT` was never set in this shell. | Set it from your live credentials: `export ACCOUNT=$(aws sts get-caller-identity --query Account --output text)`. |
+| `InvalidClientTokenId` / `The security token included in the request is invalid` | AWS credentials are missing or expired. | Re-authenticate (`aws sso login --profile <profile>`, or refresh keys/`AWS_SESSION_TOKEN`), then verify with `aws sts get-caller-identity`. |
+| `zsh: command not found: #` | zsh ran a pasted `#` comment line as a command. | Harmless — don't paste comment lines, or run `setopt interactive_comments` once. |
 
 CDK outputs include: `ApiUrl`, `ApiKeyId`, `DashboardUrl`, `DashboardBucketName`, `OpsAlertsTopicArn`, `OpsAlertsTopicArnWest`.
 
@@ -406,7 +434,7 @@ After deployment completes, verify the stacks are operational:
 # 1. Confirm all stacks deployed successfully
 # (any cdk CLI invocation that loads app.py — list/diff/synth/deploy/destroy —
 #  requires the same -c account / -c ops_alert_email context used at deploy time)
-npx cdk list -c account=$ACCOUNT -c ops_alert_email=<address>
+npx cdk list -c account=$ACCOUNT -c ops_alert_email=$EMAIL
 
 # 2. Retrieve the API URL and key
 API_URL=$(aws cloudformation describe-stacks --stack-name CompassApi \
